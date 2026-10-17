@@ -21,7 +21,8 @@ First Orca use this session → `orca skills get orchestration` once, keep its s
 ## Per request
 
 1. One line per project: job + size (S/M/L). One question to the owner: priority order (suggest one).
-2. M/L: worktree + Gemini scout → `.wf/context.md`. `wf.sh prep <worktree>`.
+2. M/L: worktree from `base:` in `directory.md` + Gemini scout → `.wf/context.md`.
+   `wf.sh prep <name> <worktree>` (also copies `.env.local` etc.). Rules: `WF/profiles/<type>.md`.
 3. Write `WF/projects/<name>/task.md` (template layout, 20–40 lines, exact `## May edit`).
 4. `resource-gate.sh wait agent` → Codex builds/debugs/tests/QA → `check --wait`.
 5. `wf.sh check <name> <worktree>` → PASS or rework (`## Rework`, `--retry-of`).

@@ -1,5 +1,7 @@
 # <project-name>
 
-path: /home/eisen/<path/to/project>
+path: /home/eisen/<path/to/git repo>
 type: unity
-test: <test command, run from the project root; see profiles/<type>.md>
+base: main
+test: <test command, run from the repo root; see profiles/<type>.md>
+copy:

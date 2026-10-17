@@ -6,6 +6,7 @@ scripts do the bookkeeping.
 
 `$WF` = this repo (`$AGENT_WORKFLOW_HOME`, default `~/workspace/Agent-Workflow`).
 Orca commands: [docs/orca.md](docs/orca.md). Memory rules: [docs/resources.md](docs/resources.md).
+Project-type rules: [profiles/](profiles/) (`unity.md`, `web.md`). `<base>` = `base:` in `directory.md`.
 
 ## Who does what
 
@@ -27,7 +28,7 @@ Per project, in this repo (`projects/<name>/`, git-ignored):
 
 | File | Contents | Written by |
 |---|---|---|
-| `directory.md` | local path, type, test command | `wf.sh new`, owner |
+| `directory.md` | local path, type, base branch, test command, files copied into worktrees | `wf.sh new`, owner |
 | `task.md` | the one active task (template layout) | Claude |
 | `archive.md` | finished tasks, newest first, with date/time | `wf.sh archive` |
 | `summary.md` | what the last task did + project state; replaced every task/session | Gemini (via `wf.sh collect`) |
@@ -67,8 +68,8 @@ the same project waits until the current task is archived.
 orca orchestration run-create --objective "<project>: <job>" --json
 $WF/scripts/resource-gate.sh wait agent
 orca orchestration worker-start --spec "<scout prompt>" --agent antigravity \
-  --worktree new-top-level --repo path:<project path> --base-branch main --name tNNN-<slug> --json
-$WF/scripts/wf.sh prep <worktree>
+  --worktree new-top-level --repo path:<project path> --base-branch <base> --name tNNN-<slug> --json
+$WF/scripts/wf.sh prep <name> <worktree>      # .wf/, copies .env.local etc. from directory.md
 ```
 
 Scout prompt: "Read only what is needed for: <job>. Write `.wf/context.md`, max 60 lines: relevant

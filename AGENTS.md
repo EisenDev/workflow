@@ -22,21 +22,20 @@ GitHub: `EisenDev/workflow` (public). Local: `~/workspace/Agent-Workflow` (`$AGE
 
 Orca (stablyai/orca, `orca` CLI; the desktop app must be running) runs the workers in git
 worktrees. The task lifecycle: [taskflow.md](taskflow.md). How the owner uses it:
-[Skill-usage.md](Skill-usage.md).
+[docs/usage.md](docs/usage.md).
 
 ## Repo map
 
 ```
 AGENTS.md CLAUDE.md GEMINI.md README.md   entry points
-Skill-usage.md                            how the owner uses the workflow
 taskflow.md                               the one source for the task lifecycle
 roles/       job, inputs, outputs, limits per agent
-profiles/    rules per project type: unity.md (web.md, software.md planned)
+profiles/    rules per project type: unity.md, web.md (software.md planned)
 projects/    _template/ (published) + one folder per project (git-ignored, local only)
 skills/      orchestrate (Claude), workflow-builder (Codex), workflow-writer (Gemini)
 scripts/     wf.sh (projects, check, archive, ship), resource-gate.sh + resource-watch.sh (memory),
              install.sh (links skills)
-docs/        orca.md  project-setup.md  resources.md
+docs/        usage.md  project-setup.md  resources.md  orca.md
 .claude/settings.json                     Claude model + effort for this folder
 ```
 
@@ -59,7 +58,7 @@ docs/        orca.md  project-setup.md  resources.md
 ## Rules for editing this repo
 
 - One source per topic: flow in `taskflow.md`, role details in `roles/`, project-type rules in
-  `profiles/`, owner how-to in `Skill-usage.md`. Others link instead of copying.
+  `profiles/`, owner how-to in `docs/usage.md`. Others link instead of copying.
 - Commands in docs must be verified on the owner's machine; otherwise mark them "verify".
 - Skills are linked by `scripts/install.sh`; edits take effect directly.
 - Date status lines (`Status (YYYY-MM-DD): ...`).
@@ -73,10 +72,12 @@ docs/        orca.md  project-setup.md  resources.md
 
 ## Status and build order
 
-Status (2026-10-17): everything written; scripts tested on throwaway repos; no real task run yet.
+Status (2026-10-18): four real projects registered (local `projects/`); one web project passed a
+full dry-run check (prep + npm ci + tests through the gate); no real task run yet.
 
-1. [x] Repo on GitHub, roles, taskflow, Unity profile, skills (installed), docs.
-2. [x] Memory gate + watcher (tested), `wf.sh` (tested: new, list, check, collect, archive).
-3. [ ] Add the real projects (`wf.sh new`), first real task end to end; settle the "verify" list
-   in `taskflow.md`; test `wf.sh ship`/`merge` on a real PR.
-4. [ ] Web profile (Playwright QA) and software profile.
+1. [x] Repo on GitHub, roles, taskflow, Unity + web profiles, skills (installed), docs.
+2. [x] Memory gate + watcher (tested), `wf.sh` (tested: new, list, prep, check, collect, archive).
+3. [x] Real projects registered with `wf.sh new`.
+4. [ ] First real task end to end; settle the "verify" list in `taskflow.md`; test
+   `wf.sh ship`/`merge` on a real PR.
+5. [ ] Software profile.

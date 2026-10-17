@@ -5,7 +5,7 @@
 #   wf.sh list                               one line per project: name, type, priority, status, task
 #   wf.sh new <name> <path> <type>           create projects/<name> from the template
 #   wf.sh path <name>                        print the project's local path
-#   wf.sh prep <worktree>                    create .wf/ (worker notes) and keep it out of git
+#   wf.sh prep <name> <worktree>             create .wf/, keep it out of git, copy local files in
 #   wf.sh check <name> <worktree> [base]     ownership + tests -> one PASS/FAIL line
 #   wf.sh collect <name> <worktree>          copy Gemini's .wf/summary.md + suggestions.md in
 #   wf.sh archive <name> approved|dropped    move task.md to the top of archive.md, reset task.md
@@ -23,6 +23,8 @@ field() { awk -v k="$2" '/^```/ {exit} index($0, k ":") == 1 {sub(/^[^:]*:[ \t]*
 title() { head -n1 "$1/task.md" | sed 's/^# Task: //'; }
 project_path() { local p; p=$(field "$1/directory.md" path); echo "${p/#\~/$HOME}"; }
 default_branch() { local b; b=$(git -C "$1" rev-parse --abbrev-ref origin/HEAD 2>/dev/null) && echo "${b#origin/}" || echo main; }
+# base <project dir> <git dir>: branch tasks start from (directory.md base:, else origin/HEAD)
+base_branch() { local b; b=$(field "$1/directory.md" base); [[ -n "$b" ]] && echo "$b" || default_branch "$2"; }
 
 cmd_list() {
   local d n
@@ -38,26 +40,38 @@ cmd_new() {
   [[ "$name" =~ ^[a-z0-9][a-z0-9._-]*$ ]] || die "name must be lowercase letters, digits, . _ -"
   d="$P/$name"; [[ -e "$d" ]] && die "projects/$name exists"
   path=$(cd "${path/#\~/$HOME}" && pwd) || die "no such folder: $2"
-  git -C "$path" rev-parse --git-dir >/dev/null 2>&1 || echo "warn: $path is not a git repo" >&2
+  local base=""
+  if git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then base=$(default_branch "$path")
+  else echo "warn: $path is not a git repo; tasks cannot run until it is" >&2; fi
   case "$type" in
     unity) test="$WF/scripts/resource-gate.sh run heavy -- unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics" ;;
     *) test="TODO" ;;
   esac
   cp -r "$P/_template" "$d"
-  printf '# %s\n\npath: %s\ntype: %s\ntest: %s\n' "$name" "$path" "$type" "$test" > "$d/directory.md"
+  printf '# %s\n\npath: %s\ntype: %s\nbase: %s\ntest: %s\ncopy:\n' "$name" "$path" "$type" "$base" "$test" > "$d/directory.md"
   echo "created projects/$name ($type, $path)"
 }
 
 cmd_prep() {
-  local wt="${1:?worktree}" ex
+  local d wt="${2:?worktree}" ex src f n=0
+  d=$(proj "${1:-}")
   ex="$(git -C "$wt" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
   mkdir -p "$(dirname "$ex")" "$wt/.wf"
   grep -qx '.wf/' "$ex" 2>/dev/null || echo '.wf/' >> "$ex"
+  # copy: comma-separated paths (git-ignored local files such as .env.local) copied if missing
+  src=$(project_path "$d")
+  IFS=, read -ra files <<< "$(field "$d/directory.md" copy)"
+  for f in "${files[@]}"; do
+    f="${f#"${f%%[![:space:]]*}"}"; f="${f%"${f##*[![:space:]]}"}"; [[ -z "$f" ]] && continue
+    [[ -e "$src/$f" ]] || { echo "warn: copy: $f not found in project" >&2; continue; }
+    [[ -e "$wt/$f" ]] || { mkdir -p "$(dirname "$wt/$f")"; cp -a "$src/$f" "$wt/$f"; n=$((n + 1)); }
+  done
+  echo "prepared $wt (.wf/ excluded, copied $n file(s))"
 }
 
 cmd_check() {
   local d wt="${2:?worktree}" base f p ok rc=0 tests stat dirty
-  d=$(proj "${1:-}"); base="${3:-$(default_branch "$wt")}"
+  d=$(proj "${1:-}"); base="${3:-$(base_branch "$d" "$wt")}"
   local -a allow outside=() changed
   mapfile -t allow < <(awk '/^## May edit/ {f=1; next} /^## / {f=0} f && /^- / {sub(/^- +/, ""); sub(/[ \t]+$/, ""); print}' "$d/task.md")
   mapfile -t changed < <({ git -C "$wt" diff --name-only "$base"...HEAD
@@ -115,7 +129,7 @@ cmd_archive() {
 
 cmd_ship() {
   local d wt="${2:?worktree}" branch base
-  d=$(proj "${1:-}"); branch=$(git -C "$wt" branch --show-current); base=$(default_branch "$wt")
+  d=$(proj "${1:-}"); branch=$(git -C "$wt" branch --show-current); base=$(base_branch "$d" "$wt")
   [[ -n "$branch" && "$branch" != "$base" ]] || die "refusing to ship from '$branch'"
   git -C "$wt" push -q -u origin "$branch"
   (cd "$wt" && gh pr create --base "$base" --head "$branch" --title "$(title "$d")" --body-file "$d/summary.md")

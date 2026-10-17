@@ -14,7 +14,7 @@ you ─▶ Claude (lead, decides) ─▶ Gemini: scout ─▶ Codex: build/debug
 
 | I want to... | Read |
 |---|---|
-| Use it | [Skill-usage.md](Skill-usage.md) |
+| Use it | [docs/usage.md](docs/usage.md) |
 | Add a project | [docs/project-setup.md](docs/project-setup.md) |
 | Know exactly what happens to a task | [taskflow.md](taskflow.md) |
 | Know what each AI does | [roles/](roles/) |
