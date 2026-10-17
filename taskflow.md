@@ -40,7 +40,7 @@ Per task, in the worktree (`.wf/`, never committed): `report.md` (Codex), `summa
 
 | Size | When | Steps |
 |---|---|---|
-| **S** | typo, one-liner, obvious fix | task → build → check → diff → report (Claude writes the 3-line summary) |
+| **S** | typo, one-liner, obvious fix, no behaviour change | task → build → check → diff → report (Claude writes the 3-line summary; no doc changes) |
 | **M** | normal feature/bug | full flow |
 | **L** | big or unclear | Claude splits it into M tasks |
 
@@ -68,7 +68,8 @@ $WF/scripts/wf.sh map-status <name>
 
 - `missing` → **one-time map**: Claude reads the repo structure (`git ls-files`, top-level docs,
   the project's `AGENTS.md`/`CLAUDE.md`, package/project files, entry points, one representative
-  file per area) and writes `codemap.md` from the template (100–250 lines). Then
+  file per area, and the `docs/` index) and writes `codemap.md` from the template (100–250 lines),
+  including which doc covers each feature and the project's doc convention. Then
   `wf.sh map-stamp <name>`. This is the only time Claude reads broadly.
 - `stale` → it lists the files changed since the map. Claude reads only those that affect the
   map (new/moved/deleted modules, new features, changed entry points), updates the matching
@@ -83,7 +84,9 @@ folder to understand the current code.
 ### 3. Task (Claude)
 
 Write `projects/<name>/task.md` from the template, 20–40 lines, with an exact `## May edit`
-(dirs end with `/`) and file:symbol pointers in `## Notes` so Codex does not have to search.
+(dirs end with `/`), file:symbol pointers in `## Notes` so Codex does not have to search, and
+`## Docs`: the project docs the writer should update (from the codemap's docs column), or
+"none (why)".
 
 ### 4. Worktree + build (Codex)
 
@@ -116,14 +119,23 @@ step 4. Two failed reworks on the same point → ask the owner.
 `writer=gemini` (from step 0):
 
 ```
+orca orchestration task-create --task-title "T-NNN docs" --deps '["<build task_id>"]' \
+  --spec "Writer for T-NNN. Follow the workflow-writer skill. Base branch: <base>. <task.md>" --json
 $WF/scripts/resource-gate.sh wait agent
-orca orchestration worker-start --spec "<writer prompt>" --agent antigravity --worktree path:<worktree> --json
+orca orchestration worker-start --task <docs task_id> --agent antigravity --worktree path:<worktree> --json
+orca orchestration check --wait --types "worker_done,escalation,question" --timeout-ms 900000 --json
 $WF/scripts/wf.sh collect <name> <worktree>
 ```
 
 Gemini finds what changed with git (`git log --oneline <base>..HEAD`, `git diff <base>...HEAD`),
-reads `.wf/report.md` and the task, updates the project's docs (committed locally), and writes
-`.wf/summary.md` and `.wf/suggestions.md` (empty if none).
+reads `.wf/report.md` and the task, and writes:
+
+- **Project docs** (`docs/` in the project, shared with the other maintainer): reads only the
+  docs index and the files in the task's `## Docs`; small edits to the affected sections in the
+  project's convention; no task chatter; no restructuring; no new `docs/` folder. Committed
+  locally on the task branch, so docs and code go in the same PR.
+- `.wf/summary.md` (with a `Docs:` line) and `.wf/suggestions.md` (empty if none; includes other
+  docs that are now out of date).
 
 **Fallback to Claude** when `writer=claude`, or the Gemini worker fails/exits with a model,
 quota or context-limit error: Claude writes the summary and suggestions itself (it reads the diff
@@ -137,9 +149,11 @@ $WF/scripts/wf.sh diff <name> <worktree>     # commits, size, code diff without 
 ```
 
 Claude reads the task's diff (the changed code, not the codebase) and Gemini's `summary.md`,
-`suggestions.md` and doc changes, and checks that the docs match the diff. Verdict:
+`suggestions.md` and doc changes, and checks: do the docs match the diff, were the docs in
+`## Docs` (and the index, for a new doc) updated, and nothing else rewritten? Verdict:
 
-- **revise** → rework notes, back to step 4 (or the writer, if only docs are wrong).
+- **revise** → rework notes, back to step 4 (code) or to the writer (docs only; Claude does not
+  fix docs itself unless it is the writer fallback).
 - **approve** → report to the owner, per project:
 
 ```
@@ -147,6 +161,7 @@ Claude reads the task's diff (the changed code, not the codebase) and Gemini's `
 Done: <1–2 lines>
 Tests: <check line>
 Code review: <ok | issues fixed | open concerns>
+Docs: <project docs updated | none needed (why)>
 Needs change before push: <items, or "nothing">
 Suggestions: <count + the important one, or "none">
 You check: <visuals/feel, or "nothing">
@@ -164,8 +179,8 @@ $WF/scripts/wf.sh merge <name> <pr>              # squash-merge + archive as app
 ```
 
 Then pull the merge into the local base only with the owner's OK (or leave it for the next
-`map-status`), update the codemap sections the task touched (Claude already read that diff), and
-`wf.sh map-stamp <name>`.
+`map-status`), update the codemap sections the task touched, including new docs in the docs
+column (Claude already read that diff), and `wf.sh map-stamp <name>`.
 
 "Revise" → back to step 4. "Drop" → `wf.sh archive <name> dropped` (ask before deleting the
 branch/worktree).

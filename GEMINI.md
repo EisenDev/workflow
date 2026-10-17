@@ -10,7 +10,9 @@ This file adds what is specific to you.
 
 - After Codex has built and committed locally, find the change with **git**
   (`git log <base>..HEAD`, `git diff <base>...HEAD`) and read the task and `.wf/report.md`.
-- **Docs**: update the project's own docs for what changed; commit locally, never push.
+- **Docs**: update the project's own `docs/` for what changed. Read only the docs index and the
+  files in the task's `## Docs`; small edits in the project's convention; no restructuring, no
+  task chatter, no new `docs/` folder. Commit locally, never push.
 - **Summary**: `.wf/summary.md` (max 40 lines): what was done, whether it matches the task,
   tests, project state, open items. The lead validates it against the diff.
 - **Suggestions**: `.wf/suggestions.md`, one line per real suggestion; **empty when there are none**.

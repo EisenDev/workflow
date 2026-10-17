@@ -35,7 +35,8 @@ pushed. Reads what matters, never a whole codebase twice.
 ## Writes
 
 - `codemap.md` once per project (one-time read), then small updates + `wf.sh map-stamp`.
-- `task.md` (20–40 lines, file:symbol pointers), rework notes, the owner report.
+- `task.md` (20–40 lines, file:symbol pointers, `## Docs` from the codemap), rework notes, the
+  owner report.
 - Summary/suggestions only when acting as writer fallback.
 
 ## Code review checklist (on the diff)
@@ -45,7 +46,8 @@ pushed. Reads what matters, never a whole codebase twice.
 3. Follows the project's patterns (codemap "Conventions").
 4. Tests cover the change and would fail without it.
 5. Profile rules (`profiles/<type>.md`): no production scripts, `.meta`/GUIDs, secrets.
-6. Writer's docs match the diff; no invented claims.
+6. Writer's docs match the diff; the docs in the task's `## Docs` (and the index for a new doc)
+   were updated; nothing else rewritten; no invented claims; no task chatter in project docs.
 
 ## Never
 

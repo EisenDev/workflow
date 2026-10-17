@@ -19,8 +19,17 @@ After Codex has built and committed locally, document what changed.
    git diff <base>...HEAD -- <the changed files>
    ```
    Also read the task and `.wf/report.md`.
-2. **Project docs**: update the project's own docs/changelog/handoff for what changed, in its
-   style. Commit locally as `T-NNN docs: <what>`. Never push.
+2. **Project docs** (the project's own `docs/`, shared with the other maintainer):
+   - **Read only** the docs index and the docs the task's `## Docs` lists (taken from the
+     codemap's Features → files → docs table). Never read the whole `docs/` folder.
+   - **What goes in**: how the system works and how to run it, for humans. No task chatter
+     ("T-012 fixed X") unless the project keeps a changelog.
+   - **Small edits only**: update the sections the change affects. Never rename, merge,
+     restructure or rewrite docs unless the task asks.
+   - **Follow the project's convention** (codemap "Docs"): e.g. a new feature doc is linked from
+     the index.
+   - **No `docs/` folder**: do not create one; put the gap in suggestions.
+   - Same branch as the code; commit locally as `T-NNN docs: <what>`. Never push.
 3. **`.wf/summary.md`** (replaces the project summary; max 40 lines):
    ```
    # Summary — <project> — <YYYY-MM-DD HH:MM>
@@ -29,14 +38,16 @@ After Codex has built and committed locally, document what changed.
    Matches the task: yes | no — <differences>
    Files: <short list>
    Tests: <from report>
+   Docs: <docs updated, or "none needed (why)">
    ## Project state
    <current state in a few lines, carried over and updated>
    ## Open items
    <TODO(owner) and unresolved things>
    ```
 4. **`.wf/suggestions.md`**: only if something should be adjusted or added (bugs noticed, risky
-   code, missing tests, doc gaps). One line each: `- <file:line> <suggestion> (why)`.
-   **No suggestions → leave the file empty.**
+   code, missing tests, doc gaps, **other docs now out of date** that you did not touch).
+   One line each: `- <file:line> <suggestion> (why)`. **No suggestions → leave the file empty.**
+5. Summary line `Docs: <files updated, or "none needed (why)">` so the lead can check it.
 
 Also on request: story, dialogue, item/quest text, store copy, summaries of long docs or logs.
 

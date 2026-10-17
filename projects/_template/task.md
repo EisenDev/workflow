@@ -26,6 +26,9 @@ Started: YYYY-MM-DD HH:MM
 - <observable check>
 - Owner checks: <visuals/feel, or none>
 
+## Docs
+- <docs/FILE.md from the codemap's docs column; "index" if a new doc must be linked; or "none (why)">
+
 ## Notes
 <file:symbol pointers from the codemap, constraints, what not to do>
 

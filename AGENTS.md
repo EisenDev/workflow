@@ -74,12 +74,13 @@ docs/        usage.md  project-setup.md  resources.md  orca.md
 
 ## Status and build order
 
-Status (2026-10-18): four real projects registered (local `projects/`); one web project passed a
-full dry-run check (prep + npm ci + tests through the gate); no real task run yet.
+Status (2026-10-18): four projects registered (local `projects/`); owsi passed a full dry-run
+check; owsi-giveaway has its codemap (with docs map). Ready for the first real task.
 
 1. [x] Repo on GitHub, roles, taskflow, Unity + web profiles, skills (installed), docs.
-2. [x] Memory gate + watcher (tested), `wf.sh` (tested: new, list, prep, check, collect, archive).
-3. [x] Real projects registered with `wf.sh new`.
+2. [x] Memory gate + watcher, `wf.sh` (new, list, prep, map-status/stamp, diff, writer-check,
+   check, collect, archive) tested on real repos.
+3. [x] Codemap flow; Gemini updates project `docs/` from the codemap's docs map.
 4. [ ] First real task end to end; settle the "verify" list in `taskflow.md`; test
    `wf.sh ship`/`merge` on a real PR.
 5. [ ] Software profile.

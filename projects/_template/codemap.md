@@ -17,10 +17,16 @@ Mapped: none
 |---|---|
 | <dir/> | <purpose> |
 
-## Features → files
-| Feature / flow | Main files (entry first) |
-|---|---|
-| <login, inventory, player movement…> | <path:symbol, path> |
+## Features → files → docs
+| Feature / flow | Main files (entry first) | Docs |
+|---|---|---|
+| <login, inventory, player movement…> | <path:symbol, path> | <docs/FILE.md, or —> |
+
+## Docs
+- Index: <docs/README.md, or "no docs/ folder">
+- Convention: <file naming, where new feature docs go, what must be linked from the index,
+  changelog/handoff file if any>
+- General docs (update when setup, architecture or operations change): <files>
 
 ## Data
 <database / schema / migrations / save files / ScriptableObjects; where they are defined>
