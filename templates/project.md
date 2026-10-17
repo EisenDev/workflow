@@ -11,6 +11,7 @@ changelog: <path or "none">
 
 test_command: <exact command, run from the worktree root>
 build_command: <exact command or "none">
+test_location: local          # local | ci | both  (see docs/resources.md)
 
 forbidden_paths:              # added to the profile's defaults
   - <path>

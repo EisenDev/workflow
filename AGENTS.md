@@ -33,10 +33,10 @@ AGENTS.md CLAUDE.md GEMINI.md README.md   entry points
 taskflow.md                               the one source for the task lifecycle
 roles/       one file per agent: job, inputs, outputs, limits
 profiles/    rules per project type: unity.md (web.md, software.md planned)
-templates/   task-brief.md report.md project.md project-agents-snippet.md
+templates/   task-brief.md report.md project.md project-agents-snippet.md github/unity-tests.yml
 skills/      orchestrate (Claude), workflow-builder (Codex), workflow-writer (Gemini)
-scripts/     install.sh  links the skills into each tool's skill folder
-docs/        usage.md  project-setup.md  orca.md
+scripts/     install.sh (links skills), resource-gate.sh + resource-watch.sh (memory)
+docs/        usage.md  project-setup.md  orca.md  resources.md
 ```
 
 ## Rules for every agent
@@ -81,9 +81,11 @@ Status (2026-10-17): docs written, nothing run end-to-end yet.
 
 1. [x] Repo on GitHub (`EisenDev/workflow`).
 2. [x] Taskflow, roles, templates, Unity profile, docs.
-3. [x] Skills written; [ ] installed with `scripts/install.sh`.
-4. [ ] End-to-end test on a throwaway Unity repo; settle the "verify" items in `taskflow.md`.
-5. [ ] Web and software profiles.
+3. [x] Skills written and installed with `scripts/install.sh`.
+4. [x] Memory gate + watcher (`docs/resources.md`), tested 2026-10-17; GitHub Actions template
+   for Unity tests (not yet run).
+5. [ ] End-to-end test on a throwaway Unity repo; settle the "verify" items in `taskflow.md`.
+6. [ ] Web and software profiles.
 
 Limits: start with one Codex lane and one Gemini lane; merge only with the owner's OK until the
 system has proven itself; each tool has its own login and quota and can run out mid-task.

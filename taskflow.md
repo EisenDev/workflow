@@ -40,7 +40,12 @@ Claude keeps the state in the brief's header line `Status:`.
 ```
 orca status --json                    # Orca is running, note caller.orcaSessionId
 git -C <repo> status                  # clean main, up to date with origin
+$WF/scripts/resource-gate.sh status   # memory; start the watcher if it is not running
+systemctl --user is-active wf-resource-watch
 ```
+
+`$WF` = the workflow repo (`$AGENT_WORKFLOW_HOME`, default `~/workspace/Agent-Workflow`).
+Memory rules: [docs/resources.md](docs/resources.md).
 
 Read the project's `AGENTS.md`, handoff file, `.agents/project.md` and `profiles/<type>.md`.
 Stop and tell the owner if the repo is dirty, not a git repo, or the profile's preflight fails.
@@ -78,6 +83,7 @@ Use `--deps '["<task_id>"]'` only for real ordering. Record `run_id` and `task_i
 ### 4. Start the builder
 
 ```
+$WF/scripts/resource-gate.sh wait agent      # queue until there is memory; tell the owner if it waits long
 orca orchestration worker-start --task <task_id> --agent codex \
   --worktree new-top-level --repo path:<repo> --base-branch main \
   --name tNNN-<slug> --json
@@ -123,6 +129,8 @@ Check:
 2. The change does what the brief says, no more. No unrelated refactors or reformatting.
 3. Profile review checklist (e.g. `profiles/unity.md`).
 4. Run the project's test command from `.agents/project.md` myself; do not trust the report alone.
+   Heavy commands (Unity) go through `resource-gate.sh run unity -- ...`. With
+   `test_location: ci|both`, push the task branch and `gh run watch` the test run instead.
 5. The report exists and matches the diff.
 
 Fails -> rework:
@@ -145,6 +153,7 @@ not invent decisions; write `TODO(owner)` where something is unclear".
 
 ```
 orca orchestration task-create --task-title "T-NNN docs" --spec "..." --deps '["<task_id>"]' --json
+$WF/scripts/resource-gate.sh wait agent
 orca orchestration worker-start --task <docs_task_id> --agent antigravity \
   --worktree path:<worktree> --json
 ```
@@ -192,6 +201,7 @@ Set the brief to `merged`. Without an OK, leave the branch and worktree as they 
 
 - Workers only run inside their task worktree, never the owner's main folder.
 - One builder lane (Codex) and one writer lane (Gemini) until the flow has proven itself.
+- No worker starts and no Unity run starts without passing `resource-gate.sh`.
 - Every task has exactly one outcome in the final report: merged, waiting for OK, blocked or abandoned.
 - Nothing gets merged to main without the owner's OK.
 - Never delete a worktree or branch that has unmerged work without asking.

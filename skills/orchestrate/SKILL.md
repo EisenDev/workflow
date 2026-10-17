@@ -24,7 +24,9 @@ If the project has no `.agents/project.md`, stop and offer to set it up with
 1. Preflight: `orca status --json`, clean main.
 2. Restate the request; ask only real decisions.
 3. Brief(s) from `WF/templates/task-brief.md` into `.agents/tasks/T-NNN.md`.
-4. `run-create`, `task-create`, `worker-start --agent codex --worktree new-top-level ...`.
+4. `run-create`, `task-create`, `WF/scripts/resource-gate.sh wait agent`, then
+   `worker-start --agent codex --worktree new-top-level ...`. Unity runs only via
+   `resource-gate.sh run unity -- ...` (`WF/docs/resources.md`).
 5. `check --wait --types "worker_done,escalation,question"`; answer questions; ack.
 6. Review the diff, run the tests yourself, profile checklist. Rework via `--retry-of`.
 7. Docs pass with `--agent antigravity` in the same worktree when needed; check it.

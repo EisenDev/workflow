@@ -22,6 +22,7 @@ you ──▶ Claude (lead) ──▶ Orca ──▶ Codex (builder)   ─┐  e
 | Know exactly what happens to a task | [taskflow.md](taskflow.md) |
 | Know what each AI does | [roles/](roles/) |
 | Look up an Orca command | [docs/orca.md](docs/orca.md) |
+| Keep memory under control / use GitHub Actions | [docs/resources.md](docs/resources.md) |
 | Change the workflow itself | [AGENTS.md](AGENTS.md) |
 
 ## Install

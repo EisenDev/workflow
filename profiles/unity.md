@@ -24,7 +24,8 @@ grep -q "^Library/" <repo>/.gitignore
 ```
 profile: unity
 unity_version: <from ProjectSettings/ProjectVersion.txt>
-test_command: unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 1200 -- -nographics
+test_command: ~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics
+test_location: local          # local | ci | both  (docs/resources.md)
 test_platforms: EditMode [, PlayMode]
 scenes: list of scenes and who may touch them
 forbidden_paths: (defaults below + project extras)
@@ -41,10 +42,12 @@ forbidden_paths: (defaults below + project extras)
   ```yaml
   scripts:
     setup: |
-      unity run . --timeout 3600 --log-file Logs/setup-import.log --no-tail -- -nographics
+      ~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- \
+        unity run . --timeout 3600 --log-file Logs/setup-import.log --no-tail -- -nographics
   ```
 
-  (`unity run` opens the project in batch mode, imports, and quits. Verify on the first test.)
+  (`unity run` opens the project in batch mode, imports, and quits. The gate makes imports wait
+  their turn and caps their memory. Verify on the first test.)
 - Do not copy `Library/` between folders unless the owner asks; a stale Library causes odd errors.
 
 ## Ownership rules
@@ -74,11 +77,16 @@ any *.unity / *.prefab not named in Ownership
 
 Unity Test Framework through the Unity CLI (`unity`, installed; skill `unity-cli`), from the
 worktree root. It runs the editor in batch mode itself; never pass `-batchmode`, `-quit` or
-`-projectPath` after `--`.
+`-projectPath` after `--`. Always through the memory gate (one Unity run at a time, capped):
 
 ```
-unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 1200 -- -nographics
+~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- \
+  unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics
 ```
+
+- `test_location: ci` → workers do not run Unity at all; Claude checks the GitHub Actions run
+  (`templates/github/unity-tests.yml`). `both` → workers add `--filter <their test class>` for a
+  quick local run; CI is the real check.
 
 - Exit codes: **0** all passed, **8** tests ran and some failed, **6** no verdict (compile error,
   license, editor crash, timeout). 6 is never "pass" — read the log and fix or report.

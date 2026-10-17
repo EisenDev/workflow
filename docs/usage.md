@@ -2,7 +2,9 @@
 
 ## Start a session
 
-1. Open the Orca desktop app.
+1. Open the Orca desktop app. Make sure the memory watcher runs
+   (`systemctl --user is-active wf-resource-watch`; start it as in
+   [resources.md](resources.md)).
 2. In Orca, open the project and start a Claude Code terminal in the project's main folder.
    (Claude must run inside Orca to be the coordinator.)
 3. Ask for what you want:
@@ -24,6 +26,7 @@
 | A Gemini terminal appears | Docs pass | Nothing |
 | Claude's report: changes, tests, "please check in the Editor", "OK to merge?" | Done, reviewed, tested | Check what Claude couldn't (visuals, feel), then OK or ask for changes |
 | "Blocked: Codex out of quota" (or similar) | A tool stopped | Top up / log in, then tell Claude to continue |
+| "Queued: waiting for memory" | The gate holds a worker or Unity run | Close something heavy (browser tabs, Editor) or just wait |
 
 Watching from your phone: the Orca mobile app shows the same terminals and notifies when a worker
 finishes.
