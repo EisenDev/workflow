@@ -1,0 +1,3 @@
+# Real project folders hold private task history and local paths; only the template is published.
+projects/*
+!projects/_template/

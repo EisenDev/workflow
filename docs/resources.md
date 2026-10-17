@@ -1,64 +1,49 @@
-# Memory: queue, cap, freeze, offload
+# Memory: queue, cap, freeze
 
-The laptop has 15 GiB RAM + 8 GiB zram swap. Agent CLIs use ~0.3–0.5 GiB each; a Unity editor
-import or test run uses several GiB. So the rule is: **agents queue, Unity runs one at a time,
-capped, and can be frozen; heavy test runs can go to GitHub Actions.**
+The laptop has 15 GiB RAM + 8 GiB zram swap. Agent CLIs use ~0.3–0.5 GiB each; Unity imports and
+tests, Playwright browsers and builds use several GiB. So: **agents queue, heavy jobs run one at a
+time, capped, and can be frozen.** Everything runs locally; there is no GitHub Actions part.
 
 btop is a viewer; the scripts read the same numbers btop shows: free memory (`MemAvailable`) and
-memory pressure (`/proc/pressure/memory`, the % of time programs wait for memory). Keep btop open
-to watch; the scripts act.
+memory pressure (`/proc/pressure/memory`). Keep btop open to watch; the scripts act.
 
 ## The pieces
 
 | Piece | What it does |
 |---|---|
-| `scripts/resource-gate.sh status` | One line: level, free memory, swap, pressure, Unity jobs, frozen jobs |
-| `scripts/resource-gate.sh wait agent` | Claude runs it before every `worker-start`. Blocks (queues) until ≥ 3 GiB free and pressure < 10%. |
-| `scripts/resource-gate.sh run unity -- <cmd>` | Every Unity batch run goes through this: one at a time (lock), waits for ≥ 6 GiB free, runs in its own systemd scope capped at 6 GiB (throttled) / 8 GiB (killed — Unity dies, not your desktop). |
-| `scripts/resource-watch.sh` | Background watcher. Free < 1.5 GiB → freezes the newest Unity job (paused, nothing lost). Free ≥ 6 GiB again → thaws it. Logs and notifies. |
-| GitHub Actions (`templates/github/unity-tests.yml`) | Runs Unity tests on GitHub's machines instead of the laptop. |
+| `resource-gate.sh status` | One line: level, free memory, swap, pressure, heavy jobs, frozen jobs |
+| `resource-gate.sh wait agent` | Before every worker start. Waits until ≥ 3 GiB free and pressure < 10%. |
+| `resource-gate.sh run heavy -- <cmd>` | Every Unity/Playwright/build command. One at a time (lock), waits for ≥ 6 GiB free, runs in its own systemd scope capped at 6 GiB (throttled) / 8 GiB (killed: the job dies, not your desktop). |
+| `resource-watch.sh` | Background watcher. Free < 1.5 GiB → freezes the newest heavy job (paused, nothing lost). Free ≥ 6 GiB → thaws it. Logs to `~/.local/state/agent-workflow/resource.log`. |
 
-Why agents are queued but not frozen: an agent CLI holds a live connection to its API; freezing it
-mid-answer can break the session. A Unity batch job has no such problem.
+Agents are queued, never frozen: an agent mid-answer holds a live API connection, and freezing it
+can break the session.
 
-## Start the watcher (once per login)
+## Priority
+
+Claude starts the highest-priority project's workers first. Lower-priority workers and heavy jobs
+wait at the gate; nothing is cancelled.
+
+## Watcher
 
 ```
 systemd-run --user --unit=wf-resource-watch ~/workspace/Agent-Workflow/scripts/resource-watch.sh
-systemctl --user status wf-resource-watch      # running?
-systemctl --user stop wf-resource-watch        # stop
+systemctl --user is-active wf-resource-watch
+systemctl --user stop wf-resource-watch
 ```
 
-Log: `~/.local/state/agent-workflow/resource.log`.
+Not persistent: start it again after a reboot.
 
-## Tuning
-
-All thresholds are environment variables (defaults in `resource-gate.sh`):
+## Tuning (environment variables, defaults in `resource-gate.sh`)
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `WF_MIN_FREE_AGENT` | 3 | GiB free to start an agent |
-| `WF_MIN_FREE_UNITY` | 6 | GiB free to start or thaw a Unity job |
-| `WF_CRITICAL_FREE` | 1.5 | GiB free below which a Unity job is frozen |
+| `WF_MIN_FREE_HEAVY` | 6 | GiB free to start or thaw a heavy job |
+| `WF_CRITICAL_FREE` | 1.5 | GiB free below which a heavy job is frozen |
 | `WF_MAX_PSI` | 10 | memory pressure % above which nothing new starts |
-| `WF_UNITY_MEMORY_HIGH` / `_MAX` | 6G / 8G | per-Unity-job cap |
+| `WF_HEAVY_MEMORY_HIGH` / `_MAX` | 6G / 8G | per-job cap |
 | `WF_POLL` | 15 | seconds between checks |
 
-A frozen job's time still counts against `unity test --timeout`; the profile uses 3600 s for that
-reason.
-
-## Local or GitHub Actions?
-
-Set per project in `.agents/project.md`:
-
-| `test_location` | Who runs the tests | Use when |
-|---|---|---|
-| `local` | Worker and Claude, through the gate | Small project, fast tests |
-| `ci` | GitHub Actions only; workers skip Unity runs | Big imports, low memory, or many tasks |
-| `both` | Worker runs a quick filtered local run; Claude waits for CI as the real check | Default for Unity once CI is set up |
-
-With `ci`/`both`, Claude pushes the **task branch** (not main) to trigger the run and waits with
-`gh run watch`. That push is allowed by setting `test_location`; merging still needs the owner's OK.
-
-Costs: public repos get free Actions minutes on standard runners; private repos use the account's
-monthly quota. Unity in CI needs a Unity license stored as repo secrets (see the template).
+A frozen job's time still counts against its own timeout (`unity test --timeout`); the Unity
+profile uses 3600 s for that reason.

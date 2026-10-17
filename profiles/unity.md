@@ -1,115 +1,84 @@
 # Profile: Unity
 
-Rules added to `taskflow.md` for Unity projects. The project-specific values (Unity version,
-test assemblies, scenes) live in the project's `.agents/project.md`.
+Rules added to `taskflow.md` for Unity projects. Codex follows them while building; Gemini checks
+them in its summary; `wf.sh check` enforces May edit and the tests.
 
-## Repo requirements (preflight fails without these)
+## Repo requirements
 
 - Git repo with Git LFS: `git lfs install` done, `.gitattributes` tracks binaries
   (`*.png *.psd *.fbx *.wav *.mp3 *.ogg *.tga *.exr *.unitypackage` etc.).
 - Unity `.gitignore`: at least `Library/ Temp/ Obj/ Build/ Builds/ Logs/ UserSettings/ MemoryCaptures/`.
 - Editor settings: Asset Serialization = **Force Text**, Version Control = **Visible Meta Files**.
-- `ProjectSettings/ProjectVersion.txt` matches an editor installed on this machine.
+- `ProjectSettings/ProjectVersion.txt` matches an installed editor; Unity CLI present (`unity --version`).
 
-Preflight check:
+## `projects/<name>/directory.md`
 
-```
-git -C <repo> lfs env >/dev/null && cat <repo>/ProjectSettings/ProjectVersion.txt
-unity --version                     # Unity CLI present
-grep -q "^Library/" <repo>/.gitignore
-```
-
-## `.agents/project.md` must give
+`wf.sh new <name> <path> unity` fills in the default test command:
 
 ```
-profile: unity
-unity_version: <from ProjectSettings/ProjectVersion.txt>
-test_command: ~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics
-test_location: local          # local | ci | both  (docs/resources.md)
-test_platforms: EditMode [, PlayMode]
-scenes: list of scenes and who may touch them
-forbidden_paths: (defaults below + project extras)
+test: ~/workspace/Agent-Workflow/scripts/resource-gate.sh run heavy -- unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics
 ```
 
 ## Worktrees and the Editor
 
-- Only one Editor per project folder (Unity locks it via `Temp/UnityLockfile`). The owner may
-  keep the Editor open on the main folder; workers and tests run in the task worktree only.
-- A new worktree has no `Library/`, so the first open/import is slow (minutes to much longer
-  on big projects). Do the import in the repo's `orca.yaml` setup hook so it happens once
-  when the worktree is created:
+- One Editor per folder (Unity locks it via `Temp/UnityLockfile`). The owner may keep the Editor
+  open on the main folder; workers and tests run only in the task worktree.
+- A new worktree has no `Library/`; the first import is slow and memory-heavy. Put it in the
+  repo's `orca.yaml` so it happens once, through the gate, when Orca creates the worktree:
 
   ```yaml
   scripts:
     setup: |
-      ~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- \
+      ~/workspace/Agent-Workflow/scripts/resource-gate.sh run heavy -- \
         unity run . --timeout 3600 --log-file Logs/setup-import.log --no-tail -- -nographics
   ```
 
-  (`unity run` opens the project in batch mode, imports, and quits. The gate makes imports wait
-  their turn and caps their memory. Verify on the first test.)
-- Do not copy `Library/` between folders unless the owner asks; a stale Library causes odd errors.
+  `orca.yaml` lives in the project repo, so agree on it with the other maintainer first. Without
+  it, Codex's first test run does the import instead. Verify on the first real task.
+- Do not copy `Library/` between folders; a stale Library causes odd errors.
 
-## Ownership rules
+## May edit rules
 
-- Scenes (`*.unity`) and prefabs (`*.prefab`) are YAML but merge badly. A task may only change
-  the scenes/prefabs listed by name in its Ownership, and only one open task may own a given
-  scene or prefab at a time.
-- Prefer code and ScriptableObject changes over scene edits. If a task needs scene setup that is
-  hard to do as text, the brief says so and the owner does that part in the Editor.
-- Every asset moves with its `.meta`. Never delete, regenerate or hand-edit GUIDs in `.meta` files;
-  a changed GUID breaks references silently.
-- Gemini (writer) never touches `Assets/` except text/data files explicitly named in its brief
-  (e.g. dialogue JSON, localisation tables).
+- Scenes (`*.unity`) and prefabs (`*.prefab`) merge badly: list them by exact path in May edit;
+  only one open task may own a given scene/prefab. Never use a directory entry that covers scenes
+  unless the task is about them.
+- Prefer code and ScriptableObject changes over scene edits. Scene setup that is hard as text →
+  the task says so and the owner does it in the Editor.
+- Every asset moves with its `.meta` (`wf.sh check` allows `<file>.meta` next to an allowed file).
+  Never delete, regenerate or hand-edit GUIDs.
+- Gemini never touches `Assets/` except text/data files the task names (dialogue, localisation).
 
-## Default forbidden paths
+## Never in May edit (unless the task is about it)
 
 ```
 Library/  Temp/  Obj/  Logs/  UserSettings/  Build/  Builds/
-ProjectSettings/            # unless the brief names a file
-Packages/manifest.json      # unless the brief is about packages
-Packages/packages-lock.json
-Assets/Plugins/             # third-party
-any *.unity / *.prefab not named in Ownership
+ProjectSettings/  Packages/manifest.json  Packages/packages-lock.json  Assets/Plugins/
 ```
 
 ## Tests
 
-Unity Test Framework through the Unity CLI (`unity`, installed; skill `unity-cli`), from the
-worktree root. It runs the editor in batch mode itself; never pass `-batchmode`, `-quit` or
-`-projectPath` after `--`. Always through the memory gate (one Unity run at a time, capped):
+Unity Test Framework through the Unity CLI (skill `unity-cli`), always through the gate (one heavy
+job at a time, capped). Never pass `-batchmode`, `-quit` or `-projectPath` after `--`.
 
-```
-~/workspace/Agent-Workflow/scripts/resource-gate.sh run unity -- \
-  unity test . --mode EditMode --output Logs/test-editmode.xml --timeout 3600 -- -nographics
-```
+- Exit codes: **0** passed, **8** tests failed, **6** no verdict (compile error, license, crash,
+  timeout). 6 is never a pass.
+- While building, Codex can add `--filter <TestClass>` for quick runs; `wf.sh check` runs the full
+  command from `directory.md`.
+- PlayMode: `--mode PlayMode --output Logs/test-playmode.xml`. Display/graphics failures (exit 6)
+  are reported, not skipped silently.
+- New logic gets EditMode tests in the project's test assembly.
 
-- `test_location: ci` → workers do not run Unity at all; Claude checks the GitHub Actions run
-  (`templates/github/unity-tests.yml`). `both` → workers add `--filter <their test class>` for a
-  quick local run; CI is the real check.
+## QA (Codex)
 
-- Exit codes: **0** all passed, **8** tests ran and some failed, **6** no verdict (compile error,
-  license, editor crash, timeout). 6 is never "pass" — read the log and fix or report.
-- A worker reports the exit code and the failing test names, not just "failed".
-- PlayMode: `--mode PlayMode --output Logs/test-playmode.xml`. If it fails for display/graphics
-  reasons (exit 6, not a test failure), report that instead of skipping silently.
-- Fallback without the CLI: `"$UNITY_EDITOR" -batchmode -nographics -projectPath . -runTests
-  -testPlatform EditMode -testResults Logs/test-editmode.xml -logFile Logs/test-editmode.log`
-  (no `-quit`), then check the XML and `grep -E "error CS[0-9]+"` the log.
-- New logic in a brief gets EditMode tests in the project's test assembly; the brief names it.
+- EditMode/PlayMode tests for behaviour; scripted checks via `unity run . --command <name>` where
+  the project has CLI commands.
+- Workers cannot see the Game view: visuals, feel, animation, UI layout and audio go in the report
+  under "Needs human check" with scene and steps.
 
-## What workers cannot check
+## Gemini's summary must flag
 
-Codex and Gemini cannot see the Game view. Visuals, feel, animation, UI layout and audio are
-listed in Claude's report under "Owner please check in the Editor", with the scene and steps.
-
-## Review checklist (taskflow step 6, additions)
-
-1. No files from forbidden paths; no `Library/`/`Temp/` leaks.
-2. Every added/moved/deleted asset has its matching `.meta` change; no existing GUID changed.
-3. Binary files are LFS pointers (`git -C <worktree> lfs ls-files` lists them), not raw blobs.
-4. Scene/prefab diffs only in owned files, and small and readable; large unexplained YAML
-   churn (e.g. every `m_LocalPosition` reordered) -> rework.
-5. `unity test` exits 0 for EditMode (and PlayMode if the project has it), run by Claude.
-6. No new `Debug.Log` spam, no `#if UNITY_EDITOR` code leaking into runtime paths unguarded.
-7. Package or ProjectSettings changes only if the brief allowed them.
+1. Files outside May edit or in the "never" list.
+2. Assets added/moved/deleted without their `.meta`; any changed GUID.
+3. Binaries not stored as LFS pointers (`git lfs ls-files`).
+4. Large unexplained scene/prefab YAML churn.
+5. New `Debug.Log` spam or editor-only code in runtime paths.

@@ -1,216 +1,172 @@
 # Taskflow
 
-How one piece of work goes from the owner's request to a merged PR. Project-independent: the
-project type only changes the details pulled from `profiles/<type>.md` and `.agents/project.md`.
+How work goes from the owner's request to a merged PR, across several projects at once, with
+**as few Claude tokens as possible**. Claude decides; Codex and Gemini do the reading and writing;
+scripts do the bookkeeping.
 
-Orca (`orca orchestration`, desktop app must be running) is the runtime. It owns worktrees,
-starting workers, waiting, messaging and liveness. This file says which command runs at each
-step and what Claude checks in between. Written 2026-10-17 against the installed `orca` CLI.
+`$WF` = this repo (`$AGENT_WORKFLOW_HOME`, default `~/workspace/Agent-Workflow`).
+Orca commands: [docs/orca.md](docs/orca.md). Memory rules: [docs/resources.md](docs/resources.md).
 
-## Roles in the flow
+## Who does what
 
-| Who | Orca agent | Does | Never does |
-|---|---|---|---|
-| Owner | — | Asks, answers gates, approves merge | — |
-| Claude (lead, coordinator) | runs in its own terminal | Brief, start workers, review, tests, report, PR, merge | Merge without the owner's OK |
-| Codex (builder) | `--agent codex` | Code + tests from a brief, commits on the task branch | Touch files outside the brief's Ownership |
-| Gemini (writer) | `--agent antigravity` | Docs, handoff, changelog, long text | Invent decisions, change code |
+| Work | Who | Claude reads |
+|---|---|---|
+| Talk to owner, priorities, task, accept/rework, report | **Claude** (Opus 5.5, medium) | — |
+| Read the codebase before a task (scout) | **Gemini** | `.wf/context.md`, ≤ 60 lines |
+| Build, debug, test, QA (incl. Playwright) | **Codex** | nothing directly |
+| Ownership + tests + diff size | **`wf.sh check`** | one line |
+| Docs, summary, suggestions | **Gemini** | `summary.md`, `suggestions.md` |
+| Archive, PR, merge, memory queue | **scripts** | one line |
 
-## Words
+Claude never opens the codebase or reads a full diff. If `summary.md` and the check line are not
+enough to decide, Claude reads only the specific file/lines they point to.
 
-- **Run**: one Orca namespace + inbox per owner request (`run-create`). Holds one or more tasks.
-- **Task**: one brief, `T-NNN`. Orca gives it a `task_id`; the brief records both.
-- **Dispatch**: one attempt at a task by one worker. A retry is a new dispatch, same task.
-- **Settled**: Orca received `worker_done` (succeeded or failed) for the dispatch.
+## Files
 
-## Task states
+Per project, in this repo (`projects/<name>/`, git-ignored):
 
-```
-draft -> dispatched -> built -> reviewed -> documented -> reported -> merged
-             ^            |        |
-             +--rework----+--------+         (any state) -> blocked | abandoned
-```
+| File | Contents | Written by |
+|---|---|---|
+| `directory.md` | local path, type, test command | `wf.sh new`, owner |
+| `task.md` | the one active task (template layout) | Claude |
+| `archive.md` | finished tasks, newest first, with date/time | `wf.sh archive` |
+| `summary.md` | what the last task did + project state; replaced every task/session | Gemini (via `wf.sh collect`) |
+| `suggestions.md` | Gemini's suggestions; **empty** when there are none | Gemini (via `wf.sh collect`) |
 
-Claude keeps the state in the brief's header line `Status:`.
+Per task, in the worktree (`.wf/`, never committed): `context.md` (scout), `report.md` (Codex),
+`summary.md` + `suggestions.md` (Gemini), `check.log`.
 
-## Steps
+## Task sizes
 
-### 0. Preflight (once per session)
+| Size | When | Steps |
+|---|---|---|
+| **S** | typo, one-liner, obvious fix | task → build → check → report |
+| **M** | normal feature/bug | full flow |
+| **L** | big or unclear | Claude splits it into M tasks (scout first if needed) |
 
-```
-orca status --json                    # Orca is running, note caller.orcaSessionId
-git -C <repo> status                  # clean main, up to date with origin
-$WF/scripts/resource-gate.sh status   # memory; start the watcher if it is not running
-systemctl --user is-active wf-resource-watch
-```
+## The flow
 
-`$WF` = the workflow repo (`$AGENT_WORKFLOW_HOME`, default `~/workspace/Agent-Workflow`).
-Memory rules: [docs/resources.md](docs/resources.md).
-
-Read the project's `AGENTS.md`, handoff file, `.agents/project.md` and `profiles/<type>.md`.
-Stop and tell the owner if the repo is dirty, not a git repo, or the profile's preflight fails.
-
-### 1. Understand the request
-
-Restate it in one or two sentences. Ask the owner only about real decisions (scope, behaviour,
-look). Split into tasks only when the parts can be built and reviewed separately; otherwise one task.
-
-### 2. Write the brief
-
-Copy `templates/task-brief.md` to `.agents/tasks/T-NNN.md` (next free number). Orca's task-spec
-contract needs all five of these, so the brief always has them:
-
-| Brief field | Content |
-|---|---|
-| Target | Files, component or system in scope |
-| Change | The concrete result |
-| Constraints | Invariants, compatibility, profile rules, forbidden paths |
-| Ownership | Exact files/folders this worker may edit; scenes/prefabs it owns (Unity) |
-| Acceptance | Test command(s) that must pass + any observable evidence |
-
-Plus: branch `tNNN-<slug>`, report path `.agents/reports/T-NNN.md`, and the worker's closing
-instructions (commit, write the report, send `worker_done` with `--report-path`).
-
-### 3. Create the Run and task
+### 0. Session start
 
 ```
-orca orchestration run-create --objective "<owner request, one line>" --json
-orca orchestration task-create --task-title "T-NNN <slug>" --spec "$(cat .agents/tasks/T-NNN.md)" --json
+$WF/scripts/wf.sh list                       # projects, active tasks, statuses
+$WF/scripts/resource-gate.sh status          # memory; watcher must be active
+orca status --json
 ```
 
-Use `--deps '["<task_id>"]'` only for real ordering. Record `run_id` and `task_id` in the brief.
+### 1. Request → tasks
 
-### 4. Start the builder
+The owner may name several projects in one message. For each: find it in `wf.sh list`, restate
+the job in one line, pick a size. **Ask the owner for priority** (P1 urgent / P2 normal / P3 when
+free) in one combined question with a suggested order. One active task per project; more work for
+the same project waits until the current task is archived.
 
-```
-$WF/scripts/resource-gate.sh wait agent      # queue until there is memory; tell the owner if it waits long
-orca orchestration worker-start --task <task_id> --agent codex \
-  --worktree new-top-level --repo path:<repo> --base-branch main \
-  --name tNNN-<slug> --json
-```
-
-Optional `--model <id> --effort <level>`. Record `dispatch_id` and the worktree path.
-If it exits non-zero: do **not** relaunch. Read `failedStage` / `residualResources` in the
-receipt and follow its recovery commands.
-
-### 5. Wait
+### 2. Worktree + scout (M/L)
 
 ```
+orca orchestration run-create --objective "<project>: <job>" --json
+$WF/scripts/resource-gate.sh wait agent
+orca orchestration worker-start --spec "<scout prompt>" --agent antigravity \
+  --worktree new-top-level --repo path:<project path> --base-branch main --name tNNN-<slug> --json
+$WF/scripts/wf.sh prep <worktree>
+```
+
+Scout prompt: "Read only what is needed for: <job>. Write `.wf/context.md`, max 60 lines: relevant
+files with line ranges, how it works now, how to test it, risks. No code changes." For size S, skip
+the scout and create the worktree with the build worker.
+
+### 3. Task (Claude)
+
+Write `projects/<name>/task.md` from the template, using `.wf/context.md`. Keep it 20–40 lines.
+`## May edit` lists exact paths (dirs end with `/`): `wf.sh check` enforces it.
+
+### 4. Build (Codex)
+
+```
+$WF/scripts/resource-gate.sh wait agent
+orca orchestration task-create --task-title "T-NNN <slug>" --spec "$(cat projects/<name>/task.md)" --json
+orca orchestration worker-start --task <task_id> --agent codex --worktree path:<worktree> --json
 orca orchestration check --wait --types "worker_done,escalation,question" --timeout-ms 900000 --json
 ```
 
-Handle every message in the batch, then ack (`check --ack <delivery_id> ...`):
+Codex builds, debugs, writes tests, runs them (heavy ones through the gate), does QA, commits, and
+writes `.wf/report.md` (≤ 15 lines). Questions it sends: answer from the task or ask the owner.
+A wait timeout is a checkpoint; after three empty waits, `worker-list` (see docs/orca.md).
 
-- `question` -> answer with `reply --id <msg_id> --body "..."`. If it is the owner's decision,
-  ask the owner first, or use a gate (`gate-create --task <task_id> --question ...`).
-- `escalation` -> read it, decide, reply or stop the task and tell the owner.
-- `worker_done` -> check it belongs to the expected `dispatch_id`, then go to step 6.
-
-A timeout or empty result is a checkpoint, not a failure. After three empty waits run
-`worker-list --json` and act on each row's `projection.nextAction`. Use `worker-read --dispatch <id>`
-to see what the worker is doing. Only proof that the process exited allows `worker-stop` / `worker-abandon`.
-
-Out of quota / login expired: shows up as `exited` liveness or an error in `worker-read`.
-Mark the task `blocked`, keep the worktree, tell the owner which tool ran out.
-
-### 6. Review (Claude)
-
-In the task worktree:
+### 5. Check (script)
 
 ```
-git -C <worktree> log --oneline main..HEAD
-git -C <worktree> diff --stat main...HEAD
-git -C <worktree> diff main...HEAD
+$WF/scripts/wf.sh check <name> <worktree>
+# PASS files=4 +120/-30 uncommitted=0 tests=ok
+# FAIL ... tests=exit-8 log=... outside=src/x.cs
 ```
 
-Check:
+FAIL → rework: append 1–3 lines under `## Rework` in `task.md`, start Codex again with
+`--retry-of <dispatch_id>`, back to step 4. Two failed reworks on the same point → ask the owner.
 
-1. Every changed file is inside Ownership; nothing from the forbidden paths list.
-2. The change does what the brief says, no more. No unrelated refactors or reformatting.
-3. Profile review checklist (e.g. `profiles/unity.md`).
-4. Run the project's test command from `.agents/project.md` myself; do not trust the report alone.
-   Heavy commands (Unity) go through `resource-gate.sh run unity -- ...`. With
-   `test_location: ci|both`, push the task branch and `gh run watch` the test run instead.
-5. The report exists and matches the diff.
-
-Fails -> rework:
+### 6. Docs, summary, suggestions (Gemini)
 
 ```
-orca orchestration worker-start --task <task_id> --agent codex \
-  --worktree path:<worktree> --retry-of <dispatch_id> --json
-```
-
-with the review notes added to the brief under `## Rework N`. Back to step 5.
-Two failed reworks on the same point -> stop and ask the owner.
-
-For Claude's own code, Codex reviews instead: a review-only task with Ownership "none".
-
-### 7. Docs pass (Gemini)
-
-Only when the task changed behaviour, an interface, setup, or story/text. Small brief: report +
-diff summary as input, Ownership = docs/handoff/changelog files only, "describe what was done, do
-not invent decisions; write `TODO(owner)` where something is unclear".
-
-```
-orca orchestration task-create --task-title "T-NNN docs" --spec "..." --deps '["<task_id>"]' --json
 $WF/scripts/resource-gate.sh wait agent
-orca orchestration worker-start --task <docs_task_id> --agent antigravity \
-  --worktree path:<worktree> --json
+orca orchestration worker-start --spec "<docs prompt>" --agent antigravity --worktree path:<worktree> --json
+$WF/scripts/wf.sh collect <name> <worktree>
 ```
 
-Then wait as in step 5.
+Gemini reads the task, `.wf/report.md` and the diff; updates the project's own docs (committed);
+writes `.wf/summary.md` (what was done, whether it matches the task, tests, project state, open
+items; ≤ 40 lines) and `.wf/suggestions.md` (only real suggestions, or leave it empty).
+Size S: skip; Claude writes a 3-line summary from the report.
 
-### 8. Check the docs (Claude)
+### 7. Review + report (Claude)
 
-Diff only touches doc files; every statement matches the code or the report; no new decisions.
-Fix small things directly, otherwise rework as in step 6.
+Read the check line, `summary.md`, `suggestions.md`. Look at code only where they point to a
+problem. Tell the owner, per project, in a few lines:
 
-### 9. Clean up workers
+- done / what changed (from the summary)
+- tests: the check line
+- needs change or revision before push (Claude's view + Gemini's suggestions)
+- owner checks (visuals, feel) if any
+- "OK to push?"
 
-After each accepted `worker_done`, exactly one of: reuse the terminal for the next dispatch,
-`worker-retain --dispatch <id>` (owner wants to look), or
-`worker-release --dispatch <id>`. Before reporting:
+Set `Status: waiting-ok`. Release finished workers (`worker-release`).
 
-```
-orca orchestration worker-list --run <run_id> --terminal-state reclaimable --json   # must be empty
-```
-
-### 10. Report to the owner
-
-Plain language, short:
-
-- What changed and why (one paragraph).
-- Tests run and result, with the command.
-- Anything Claude could not verify (e.g. visuals, play-feel) and how the owner can check it.
-- Open `TODO(owner)` items.
-- Branch name and "OK to open the PR and merge?"
-
-### 11. PR and merge (only on the owner's OK)
+### 8. Push and merge (only on the owner's OK)
 
 ```
-git -C <worktree> push -u origin tNNN-<slug>
-gh pr create --base main --head tNNN-<slug> --title "T-NNN <title>" --body-file .agents/reports/T-NNN.md
-gh pr merge <pr> --squash --delete-branch
-orca worktree rm <worktree selector>
-git -C <repo> pull
+$WF/scripts/wf.sh ship <name> <worktree>        # push branch + PR (summary.md as body)
+orca worktree rm <worktree>                      # after the PR exists
+$WF/scripts/wf.sh merge <name> <pr>              # squash-merge + archive as approved
 ```
 
-Set the brief to `merged`. Without an OK, leave the branch and worktree as they are.
+"Revise" instead of OK → back to step 4 with notes. "Drop it" → `wf.sh archive <name> dropped`
+(Claude asks before deleting the branch/worktree). Then the next queued request for that project
+starts at step 2.
+
+## Several projects at once
+
+- Run one Orca Run per project; Claude waits on all of them with `check --wait`.
+- Priority decides who starts first. Every worker start passes `resource-gate.sh wait agent`;
+  every heavy command (Unity, Playwright, builds) passes `resource-gate.sh run heavy -- ...`, which
+  runs one at a time. Lower priority simply waits longer.
+- Reports to the owner are grouped per project in one message.
+
+## Token rules for Claude
+
+1. Never read source files or full diffs to "get context"; that is the scout's job.
+2. Read only: `wf.sh` output, `summary.md`, `suggestions.md`, `.wf/context.md`, the task.
+3. Keep task files short; point to files, never paste them.
+4. Do not echo raw Orca JSON into thinking; extract the IDs and status.
+5. State lives in files. A fresh session reads `wf.sh list` + the active `task.md`, nothing else.
 
 ## Rules
 
-- Workers only run inside their task worktree, never the owner's main folder.
-- One builder lane (Codex) and one writer lane (Gemini) until the flow has proven itself.
-- No worker starts and no Unity run starts without passing `resource-gate.sh`.
-- Every task has exactly one outcome in the final report: merged, waiting for OK, blocked or abandoned.
-- Nothing gets merged to main without the owner's OK.
-- Never delete a worktree or branch that has unmerged work without asking.
+- Workers only run in task worktrees; never in the owner's main folder.
+- Nothing is pushed or merged without the owner's OK.
+- A worker that ran out of quota or login → task `Status: blocked`, tell the owner.
 
-## To verify in the first end-to-end test
+## To verify in the first real run
 
-- Whether `worker-start --name tNNN-<slug>` also names the git branch, or the branch must be set
-  separately (`orca worktree create --help`).
-- How to choose the Gemini model (`gemini-4-argon-medium`) for `--agent antigravity`: `--model`
-  officially supports only Claude/Codex/Cursor IDs; may need Orca's per-agent default setting.
-- Whether Codex commits by itself or Claude must commit after review.
-- Exact `--repo` / `--worktree` selector strings for this machine (`orca worktree list --json`).
+- Whether `worker-start --name` also names the git branch.
+- How to select `gemini-4-argon-medium` for `--agent antigravity`.
+- Whether `worker-start --spec` (create task + start in one call) works for the scout.
+- `orca worktree rm` before `gh pr merge --delete-branch` (local branch in use otherwise).

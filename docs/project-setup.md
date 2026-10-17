@@ -1,38 +1,25 @@
-# Adding a project to the workflow
+# Adding a project
 
-Once per project. Claude can do these steps for you ("set this project up for the workflow");
-it will ask before changing project settings.
+Nothing of the workflow is stored in the project repo, so the other maintainer of a project is
+not affected. Everything lives in `projects/<name>/` here (git-ignored, laptop only).
 
-## 1. Git and GitHub
+## Steps
 
-- The project must be a git repo with a GitHub remote and a clean `main`.
-- Profile-specific requirements first: Unity → [profiles/unity.md](../profiles/unity.md)
-  "Repo requirements" (Git LFS, Unity .gitignore, Force Text, Visible Meta Files).
+1. The project is a git repo with a GitHub remote and a clean `main`. Unity: check
+   [profiles/unity.md](../profiles/unity.md) "Repo requirements".
+2. `scripts/wf.sh new <name> <path> <type>` (`type` = `unity`, `web`, `software`). Names are
+   lowercase: `solbeast`, `owsi`, `gemstone-development`.
+3. Check `projects/<name>/directory.md`: path and `test:` command. For non-Unity types, write the
+   test command (heavy ones wrapped in `resource-gate.sh run heavy -- ...`).
+4. Open the repo once in the Orca app so Orca knows it.
+5. Optional, agree with the other maintainer first: an `orca.yaml` in the project repo for
+   worktree setup (Unity import, `pnpm install`). Without it, the first test run does that work.
 
-## 2. The `.agents/` folder
+## Check
 
-```
-<project>/.agents/
-  project.md      from templates/project.md, filled in
-  tasks/          briefs (T-001.md, ...)
-  reports/        worker reports
-```
+Ask Claude: "dry-run <name>". It runs the test command once on `main` through the gate and reports
+what is missing.
 
-Commit `.agents/` to the project. Briefs and reports are the project's history of who did what.
+## Removing a project
 
-## 3. The project's AGENTS.md
-
-Paste [templates/project-agents-snippet.md](../templates/project-agents-snippet.md) into the
-project's `AGENTS.md` (create it if missing). If the project has a `CLAUDE.md`, make sure it says
-to read `AGENTS.md`. Optional `GEMINI.md`: one line pointing to `AGENTS.md`.
-
-## 4. Orca
-
-- Add the repo in the Orca app (or `orca worktree list` shows it after first use).
-- Add `orca.yaml` at the repo root if new worktrees need setup (Unity: Library import; web:
-  `pnpm install`). Example in the profile.
-
-## 5. Check
-
-Ask Claude: "dry-run the workflow here". Claude runs preflight from `taskflow.md` step 0 and the
-profile, runs the test command once on `main`, and reports what is missing.
+Delete `projects/<name>/` (its archive goes with it; copy it somewhere first if you want to keep it).

@@ -1,28 +1,30 @@
 ---
 name: workflow-writer
-description: Writer rules for the owner's agent workflow. Use when started by Orca as a worker for a docs, handoff, changelog, story/long-text or summary task (T-NNN), or when a brief names you as writer. Covers sources of truth, no invented decisions, TODO(owner), report and worker_done.
+description: Scout and writer rules for the owner's agent workflow. Use when started by Orca as a worker to scout a codebase for a task (.wf/context.md), or to update docs and write the task summary and suggestions (.wf/summary.md, .wf/suggestions.md) after a build, or for long text / long-reading tasks.
 ---
 
 # Workflow writer (Gemini / Antigravity)
 
-Full role: `$AGENT_WORKFLOW_HOME/roles/gemini-writer.md` (default `~/workspace/Agent-Workflow`).
+Full role with exact formats: `$AGENT_WORKFLOW_HOME/roles/gemini-writer.md`
+(default `~/workspace/Agent-Workflow`).
+
+## Scout
+
+Read only what the job needs. Write `.wf/context.md`, max 60 lines: relevant files with line
+ranges, how it works now, how to test, risks, suggested May edit paths. Change nothing else.
+
+## Docs + summary + suggestions
+
+Sources: task, `.wf/report.md`, `git diff main...HEAD`, code, existing docs.
+
+1. Update the project's own docs/changelog for what changed; commit `T-NNN docs: <what>`.
+2. `.wf/summary.md` (max 40 lines): last task, done, matches the task yes/no, files, tests,
+   project state, open items.
+3. `.wf/suggestions.md`: one line per real suggestion (`- file:line suggestion (why)`).
+   **None → leave it empty.**
 
 ## Always
 
-1. The Orca preamble and the brief are your instructions. Do only that task.
-2. Edit only paths under **Ownership** (docs, handoff, changelog, named text files).
-3. Sources, in order: brief, builder report, `git diff main...HEAD`, code, existing docs.
-4. Describe what was done. **Never invent** features, reasons, dates or decisions.
-   Unclear: write `TODO(owner): <question>` and list it in your report.
-5. Match the project's existing style and language. Keep it short.
-6. Blocked: `orca orchestration ask ...` (from the preamble).
-7. Commit on the task branch as `T-NNN docs: <what>`. Never push or merge.
-
-## Finish
-
-1. Report: files changed, `TODO(owner)` list, conflicts between sources.
-2. Exactly one `worker_done` with `--outcome succeeded|failed` and `--report-path`. Then stop.
-
-## Never
-
-Change code, tests, config, scenes, prefabs or assets not named in the brief.
+Never invent features, reasons, dates or decisions; write `TODO(owner): <question>`. Never change
+code, tests, config or assets. Blocked: `orca orchestration ask ...`. Exactly one `worker_done`,
+then stop. Never push or merge.

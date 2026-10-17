@@ -9,7 +9,7 @@ must be running.
 | Orca | In our workflow |
 |---|---|
 | Run | One owner request. Namespace + inbox for Claude. |
-| Task | One brief, `T-NNN`. |
+| Task | One task (`projects/<name>/task.md`), `T-NNN`. |
 | Dispatch | One attempt at a task by one worker. Retry = new dispatch. |
 | `worker_done` | The worker's "finished" message. Settles the dispatch. |
 | Gate | A question that blocks a task until someone resolves it. |
@@ -19,7 +19,7 @@ must be running.
 ```
 orca status --json
 orca orchestration run-create --objective "<request>" --json
-orca orchestration task-create --task-title "T-NNN <slug>" --spec "<brief>" [--deps '["<task_id>"]'] --json
+orca orchestration task-create --task-title "T-NNN <slug>" --spec "<task.md text>" [--deps '["<task_id>"]'] --json
 orca orchestration worker-start --task <task_id> --agent codex|antigravity|claude \
     --worktree new-top-level|path:<p>|branch:<b>|current [--repo path:<repo>] \
     [--base-branch main] [--name <name>] [--model <id> --effort <level>] [--retry-of <dispatch_id>] --json
