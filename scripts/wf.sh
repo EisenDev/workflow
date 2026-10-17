@@ -6,6 +6,10 @@
 #   wf.sh new <name> <path> <type>           create projects/<name> from the template
 #   wf.sh path <name>                        print the project's local path
 #   wf.sh prep <name> <worktree>             create .wf/, keep it out of git, copy local files in
+#   wf.sh map-status <name>                  is codemap.md current? lists files changed since it was made
+#   wf.sh map-stamp <name>                   mark codemap.md as current (base branch tip, date)
+#   wf.sh diff <name> <worktree>             the task's code changes (no lock files, .meta, binaries)
+#   wf.sh writer-check                       is Gemini 4 Argon available? else the lead writes
 #   wf.sh check <name> <worktree> [base]     ownership + tests -> one PASS/FAIL line
 #   wf.sh collect <name> <worktree>          copy Gemini's .wf/summary.md + suggestions.md in
 #   wf.sh archive <name> approved|dropped    move task.md to the top of archive.md, reset task.md
@@ -50,6 +54,70 @@ cmd_new() {
   cp -r "$P/_template" "$d"
   printf '# %s\n\npath: %s\ntype: %s\nbase: %s\ntest: %s\ncopy:\n' "$name" "$path" "$type" "$base" "$test" > "$d/directory.md"
   echo "created projects/$name ($type, $path)"
+}
+
+# ref <project dir>: the base branch tasks start from (local branch, else origin/<base>)
+base_ref() {
+  local d="$1" path b
+  path=$(project_path "$d"); b=$(base_branch "$d" "$path")
+  git -C "$path" rev-parse -q --verify "refs/heads/$b" >/dev/null && echo "$b" || echo "origin/$b"
+}
+
+cmd_map_status() {
+  local d path ref mapped head n files dirty
+  d=$(proj "${1:-}"); path=$(project_path "$d")
+  git -C "$path" rev-parse --git-dir >/dev/null 2>&1 || die "$path is not a git repo"
+  git -C "$path" fetch -q origin 2>/dev/null || echo "warn: fetch failed, comparing local refs" >&2
+  ref=$(base_ref "$d"); head=$(git -C "$path" rev-parse --short "$ref")
+  dirty=$(git -C "$path" status --porcelain | wc -l)
+  mapped=$(sed -n 's/^Mapped: \([0-9a-f]\{7,40\}\).*/\1/p' "$d/codemap.md" 2>/dev/null | head -n1 || true)
+  local sync=""
+  if [[ "$ref" != origin/* ]] && git -C "$path" rev-parse -q --verify "origin/$ref" >/dev/null; then
+    sync=", vs origin: $(git -C "$path" rev-list --left-right --count "$ref...origin/$ref" | awk '{print "ahead " $1 " behind " $2}')"
+  fi
+  dirty="$dirty$sync"
+  if [[ -z "$mapped" ]]; then echo "missing: no codemap yet (base $ref at $head, main folder uncommitted=$dirty)"; return 1; fi
+  if ! git -C "$path" cat-file -e "$mapped^{commit}" 2>/dev/null; then echo "missing: mapped commit $mapped not found; remap"; return 1; fi
+  n=$(git -C "$path" rev-list --count "$mapped..$ref")
+  if (( n == 0 )); then echo "fresh: codemap at $head ($ref), main folder uncommitted=$dirty"; return 0; fi
+  files=$(git -C "$path" diff --name-only "$mapped" "$ref" | grep -vE '(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$|\.meta$' || true)
+  echo "stale: $n commit(s) since $mapped -> $head ($ref); $(wc -l <<< "$files") file(s) changed, main folder uncommitted=$dirty"
+  head -n 40 <<< "$files" | sed 's/^/  /'
+  (( $(wc -l <<< "$files") > 40 )) && echo "  ... (more: git -C \"$path\" diff --stat $mapped $ref)"
+  return 1
+}
+
+cmd_map_stamp() {
+  local d path ref sha tmp
+  d=$(proj "${1:-}"); path=$(project_path "$d"); ref=$(base_ref "$d")
+  sha=$(git -C "$path" rev-parse --short=12 "$ref")
+  [[ -f "$d/codemap.md" ]] || die "no codemap.md to stamp"
+  tmp=$(mktemp)
+  if grep -q '^Mapped: ' "$d/codemap.md"; then
+    sed "s|^Mapped: .*|Mapped: $sha on $ref at $(date '+%F %H:%M')|" "$d/codemap.md" > "$tmp"
+  else
+    { head -n1 "$d/codemap.md"; echo; echo "Mapped: $sha on $ref at $(date '+%F %H:%M')"; tail -n +2 "$d/codemap.md"; } > "$tmp"
+  fi
+  mv "$tmp" "$d/codemap.md"; echo "codemap stamped at $sha ($ref)"
+}
+
+cmd_diff() {
+  local d wt="${2:?worktree}" base
+  d=$(proj "${1:-}"); base=$(base_branch "$d" "$wt")
+  git -C "$wt" log --oneline "$base"..HEAD
+  git -C "$wt" diff --stat "$base"...HEAD | tail -n1
+  git -C "$wt" diff "$base"...HEAD -- . ':(exclude)package-lock.json' ':(exclude)pnpm-lock.yaml' \
+    ':(exclude)yarn.lock' ':(exclude)*.meta' ':(exclude)*.png' ':(exclude)*.jpg' ':(exclude)*.fbx'
+}
+
+# Gemini 4 Argon must be listed and be agy's default model; otherwise the lead writes.
+cmd_writer_check() {
+  local want="${WF_WRITER_MODEL:-gemini-4-argon-high}" cfg="$HOME/.gemini/antigravity-cli/settings.json" def
+  command -v agy >/dev/null || { echo "writer=claude (agy not installed)"; return 1; }
+  timeout 30 agy models 2>/dev/null | grep -q "^$want\b" || { echo "writer=claude ($want not available)"; return 1; }
+  def=$(sed -n 's/.*"model": *"\([^"]*\)".*/\1/p' "$cfg" 2>/dev/null | head -n1)
+  [[ "$def" == *Argon* ]] || echo "warn: agy default model is '${def:-unset}', not Argon" >&2
+  echo "writer=gemini ($want; agy default: ${def:-unset})"
 }
 
 cmd_prep() {
@@ -148,10 +216,14 @@ case "$c" in
   new) cmd_new "$@" ;;
   path) d=$(proj "${1:-}"); project_path "$d" ;;
   prep) cmd_prep "$@" ;;
+  map-status) cmd_map_status "$@" ;;
+  map-stamp) cmd_map_stamp "$@" ;;
+  diff) cmd_diff "$@" ;;
+  writer-check) cmd_writer_check ;;
   check) cmd_check "$@" ;;
   collect) cmd_collect "$@" ;;
   archive) cmd_archive "$@" ;;
   ship) cmd_ship "$@" ;;
   merge) cmd_merge "$@" ;;
-  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

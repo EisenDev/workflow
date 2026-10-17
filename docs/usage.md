@@ -32,14 +32,17 @@ Or tell Claude "add project X at <path>, it's web". Then check `projects/<name>/
    ```
 
 3. Claude answers with one line per project and asks for the **priority** (it suggests an order).
-4. Workers appear in Orca, one worktree per task: Gemini scouts, Codex builds and tests, Gemini
-   writes docs and the summary. Watch any terminal, or use the Orca phone app.
-5. Claude reports per project: what was done, the test result, **what needs changing before push**,
+4. The first time a project is used, Claude reads it once and writes its codemap (takes a few
+   minutes). After that it only checks with git what changed.
+5. Workers appear in Orca, one worktree per task: Codex builds and tests (local commits), Gemini
+   writes the docs from git, Claude reviews the diff. Watch any terminal, or the Orca phone app.
+6. Claude reports per project: what was done, the test result, **what needs changing before push**,
    Gemini's suggestions, what you should check yourself, then "OK to push?".
-6. Answer per project: **OK** (push, PR, merge, archive), **revise: <what>**, **not now**, or
+7. Answer per project: **OK** (push, PR, merge, archive), **revise: <what>**, **not now**, or
    **drop**.
 
-Also useful: "status", "show the suggestions for owsi", "continue", "dry-run <project>".
+Also useful: "status", "map <project>" (build or refresh its codemap now), "show the suggestions
+for owsi", "continue", "dry-run <project>".
 
 ## Files in `projects/<name>/`
 
@@ -50,6 +53,7 @@ Also useful: "status", "show the suggestions for owsi", "continue", "dry-run <pr
 | `summary.md` | what the last task did + project state; rewritten after each task |
 | `suggestions.md` | Gemini's suggestions; empty when it has none |
 | `directory.md` | path, type, base branch, test command, files copied into worktrees |
+| `codemap.md` | Claude's one-time map of the codebase; `Mapped:` is the commit it matches |
 
 They stay on your laptop (git-ignored), because this repo is public.
 

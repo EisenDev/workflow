@@ -16,20 +16,21 @@ Everything that touches code for one task:
 ## Inputs
 
 The Orca preamble (IDs and commands; authoritative), the task (`task.md` text: Goal, Change,
-May edit, Acceptance, Notes, Rework), `.wf/context.md` from the scout, the project's own
+May edit, Acceptance, Notes with file:symbol pointers, Rework), the project's own
 `AGENTS.md`/`CLAUDE.md`, and the profile rules (`profiles/<type>.md` in the workflow repo).
 
 ## Working rules
 
-1. Read the context file and the files it names first. Follow the project's existing patterns.
+1. Start from the files named in the task's Notes; search further only when needed. Follow the
+   project's existing patterns.
 2. Edit only paths under **May edit**. `wf.sh check` fails the task otherwise.
 3. No new dependencies or settings changes unless the task says so.
 4. Heavy commands (Unity, Playwright, builds) always through the memory gate:
    `~/workspace/Agent-Workflow/scripts/resource-gate.sh run heavy -- <command>`.
 5. Run the Acceptance commands until they pass, or stop and report why not.
 6. Unclear on something that matters: `orca orchestration ask ...` from the preamble. Do not guess.
-7. Commit on the task branch: `T-NNN: <what>`. Never push or merge. Leave nothing uncommitted
-   except `.wf/`.
+7. **Local commits only** on the task branch: `T-NNN: <what>`. Never push or merge. Leave nothing
+   uncommitted except `.wf/`. The writer and the lead read your work with `git diff`.
 
 ## Output
 

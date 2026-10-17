@@ -6,9 +6,10 @@ additions: [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md). Codex reads only this
 ## What this repo is
 
 A reusable multi-agent workflow for several game, web and software projects at once. The owner
-talks to one lead agent (Claude) in this folder. Claude decides; Gemini scouts and writes; Codex
-builds, debugs, tests and does QA; scripts do the bookkeeping. Goal: best results for the fewest
-Claude tokens, without running the laptop out of memory.
+talks to one lead agent (Claude) in this folder. Claude knows each codebase through a one-time
+codemap, reads only the files and diffs that matter, and gives the verdict; Codex builds, debugs,
+tests and does QA with local commits; Gemini 4 Argon writes the docs from git; scripts do the
+bookkeeping. Goal: best quality without wasting tokens or running the laptop out of memory.
 
 GitHub: `EisenDev/workflow` (public). Local: `~/workspace/Agent-Workflow` (`$AGENT_WORKFLOW_HOME`).
 
@@ -16,9 +17,9 @@ GitHub: `EisenDev/workflow` (public). Local: `~/workspace/Agent-Workflow` (`$AGE
 
 | Agent | Runs as | Role | Full description |
 |---|---|---|---|
-| Claude | Claude Code, Opus 5.5 medium, Orca coordinator | Lead: priorities, tasks, pass/rework, owner report, push/merge on OK | [roles/claude-lead.md](roles/claude-lead.md) |
+| Claude | Claude Code, Opus 5.5 medium, Orca coordinator | Lead: codemap, tasks, diff review, verdict, owner report, push/merge on OK; writer fallback | [roles/claude-lead.md](roles/claude-lead.md) |
 | Codex | `orca ... --agent codex` | Builder, debugger, tester, QA | [roles/codex-builder.md](roles/codex-builder.md) |
-| Gemini | `orca ... --agent antigravity` (`agy`, Gemini 4 Argon) | Scout, docs, summary, suggestions, long text | [roles/gemini-writer.md](roles/gemini-writer.md) |
+| Gemini | `orca ... --agent antigravity` (`agy`, Gemini 4 Argon High) | Writer: docs, summary, suggestions, long text | [roles/gemini-writer.md](roles/gemini-writer.md) |
 
 Orca (stablyai/orca, `orca` CLI; the desktop app must be running) runs the workers in git
 worktrees. The task lifecycle: [taskflow.md](taskflow.md). How the owner uses it:
@@ -33,7 +34,8 @@ roles/       job, inputs, outputs, limits per agent
 profiles/    rules per project type: unity.md, web.md (software.md planned)
 projects/    _template/ (published) + one folder per project (git-ignored, local only)
 skills/      orchestrate (Claude), workflow-builder (Codex), workflow-writer (Gemini)
-scripts/     wf.sh (projects, check, archive, ship), resource-gate.sh + resource-watch.sh (memory),
+scripts/     wf.sh (projects, codemap status, check, diff, archive, ship), resource-gate.sh +
+             resource-watch.sh (memory),
              install.sh (links skills)
 docs/        usage.md  project-setup.md  resources.md  orca.md
 .claude/settings.json                     Claude model + effort for this folder

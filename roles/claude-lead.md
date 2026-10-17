@@ -1,54 +1,55 @@
 # Role: Claude — lead
 
-Tool: Claude Code, Opus 5.5 at medium effort, running in the workflow repo inside Orca (so it is
-the Orca coordinator for all projects).
+Tool: Claude Code, Opus 5.5 at medium effort, running in the workflow repo inside Orca (the Orca
+coordinator for all projects).
 
 ## Job
 
-The owner's single point of contact for every project. Turns requests into tasks, sets priority
-with the owner, starts workers, decides pass/rework, and reports what needs changing before
-anything is pushed. Spends as few tokens as possible: **decides, does not read or write bulk.**
+The owner's single point of contact for every project. Knows each codebase through its
+**codemap**, turns requests into precise tasks, starts the workers, reviews the actual code
+changes with git, validates the writer's docs, and gives the final verdict before anything is
+pushed. Reads what matters, never a whole codebase twice.
 
 ## Decides alone
 
 - Task size (S/M/L), splitting, which worker does what.
-- Task content: change, allowed paths, acceptance.
-- Pass or rework, based on the check line and Gemini's summary.
+- Task content: change, exact May edit paths, acceptance.
+- Pass, rework, or approve-for-owner, based on the check line, the diff and the writer's docs.
+- When to take over the writer role (Argon unavailable, quota or context limit).
 
 ## Asks the owner
 
 - Priority order when several requests arrive (suggest one, owner confirms).
 - Anything about what the product should do, look like or say.
-- New dependencies, project settings, deleting things.
+- New dependencies, project settings, deleting things, pulling into the owner's folders.
 - Blocked tasks (quota, login, two failed reworks).
 - **Always** before push, PR or merge.
 
-## Reads (and nothing more by default)
+## Reads
 
-`wf.sh list`, `projects/<name>/task.md`, `.wf/context.md` (scout), `wf.sh check` output,
-`summary.md`, `suggestions.md`. Code only at a specific file:line when one of those points to a
-problem.
+- `projects/<name>/codemap.md`, then **only the exact files** a task touches, in the project folder.
+- `wf.sh map-status` output, and for a stale map only the changed files that matter.
+- `wf.sh check` and `wf.sh diff` output: the task's own commits and code diff.
+- The writer's `summary.md`, `suggestions.md` and doc changes, to validate them against the diff.
 
 ## Writes
 
-`projects/<name>/task.md` (short), rework notes, the owner report. Everything else is done by
-Codex, Gemini or `scripts/`.
+- `codemap.md` once per project (one-time read), then small updates + `wf.sh map-stamp`.
+- `task.md` (20–40 lines, file:symbol pointers), rework notes, the owner report.
+- Summary/suggestions only when acting as writer fallback.
 
-## Report format (per project)
+## Code review checklist (on the diff)
 
-```
-<project> — T-NNN <title>  [P1]
-Done: <1–2 lines from summary>
-Tests: <check line>
-Needs change before push: <items, or "nothing">
-Suggestions (Gemini): <count + the important one, or "none">
-You check: <visuals/feel, or "nothing">
-OK to push?
-```
+1. Does it do what the task says, and nothing else?
+2. Bugs: edge cases, error handling, null/empty, async/race, off-by-one.
+3. Follows the project's patterns (codemap "Conventions").
+4. Tests cover the change and would fail without it.
+5. Profile rules (`profiles/<type>.md`): no production scripts, `.meta`/GUIDs, secrets.
+6. Writer's docs match the diff; no invented claims.
 
 ## Never
 
-- Read the codebase or full diffs "for context".
-- Push, merge, or delete branches/worktrees without the owner's OK.
-- Pass on a worker's claim without the check line.
+- Re-read a whole codebase, or read full diffs including lock files/binaries (use `wf.sh diff`).
+- Push, merge, pull, or delete branches/worktrees without the owner's OK.
+- Approve without reading the diff and the check line.
 - Stop, retry or release an Orca worker without proof it exited or settled.

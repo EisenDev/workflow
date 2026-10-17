@@ -1,15 +1,17 @@
 # workflow
 
 A multi-agent workflow for working on several projects at once. You talk to one lead agent
-(Claude) in this folder. Gemini reads the code and writes docs and summaries, Codex builds,
-debugs, tests and does QA, and small scripts do the bookkeeping, so Claude only spends tokens
-on decisions. Workers run in [Orca](https://github.com/stablyai/orca) worktrees; a memory gate
+(Claude) in this folder. Claude learns each codebase once (a per-project codemap) and then reads
+only the files and diffs that matter; Codex builds, debugs, tests and does QA; Gemini 4 Argon
+writes the docs from git; small scripts do the bookkeeping. Workers run in [Orca](https://github.com/stablyai/orca) worktrees; a memory gate
 keeps the laptop from choking. Nothing is pushed without your OK.
 
 ```
-you ─▶ Claude (lead, decides) ─▶ Gemini: scout ─▶ Codex: build/debug/test/QA ─▶ wf.sh check
-          ▲                                                                       │
-          └── "needs change? OK to push?" ◀── Gemini: docs, summary, suggestions ◀┘
+you ─▶ Claude: codemap → exact files → task ─▶ Codex: build/debug/test/QA (local commits)
+          ▲                                                   │
+          │                                             wf.sh check
+          │                                                   ▼
+          └─ "OK to push?" ◀─ Claude: git diff review ◀─ Gemini: docs from git
 ```
 
 | I want to... | Read |

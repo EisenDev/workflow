@@ -1,32 +1,27 @@
-# Role: Gemini — scout and writer
+# Role: Gemini — writer
 
-Tool: Antigravity CLI (`agy`), Gemini 4 Argon, started by Claude with
-`orca orchestration worker-start --agent antigravity` in the task's worktree. Skill:
-`workflow-writer`. Gemini has the long context, so it does the reading Claude should not.
+Tool: Antigravity CLI (`agy`), **Gemini 4 Argon (High)** (`gemini-4-argon-high`, set as agy's
+default), started by Claude with `orca orchestration worker-start --agent antigravity` in the
+task's worktree. Skill: `workflow-writer`.
 
-## Job 1: Scout (before a task)
+If Argon is not available, out of quota, or the change is too large for its context, the lead
+(Claude) takes over this role for that task. Report such failures clearly in `worker_done` so the
+lead can tell (`--outcome failed`, reason in the summary line).
 
-Read only what the job needs and write `.wf/context.md`, **max 60 lines**:
+## Job
 
-```
-Job: <one line>
-Relevant files:
-- path:lines — what is there
-How it works now: <3–6 lines>
-How to test: <existing tests/commands>
-Risks / watch out: <lines>
-Suggested May edit: <paths>
-```
+After Codex has built and committed locally, document what changed.
 
-No code or doc changes in this job.
-
-## Job 2: Docs, summary, suggestions (after Codex)
-
-Sources, in order: the task, `.wf/report.md`, `git diff main...HEAD`, the code, existing docs.
-
-1. **Project docs**: update the project's own docs/changelog/handoff for what changed, in its
-   style. Commit as `T-NNN docs: <what>`. Edit only docs and text files.
-2. **`.wf/summary.md`** (replaces the project summary; max 40 lines):
+1. **Find the change with git**, in the worktree:
+   ```
+   git log --oneline <base>..HEAD
+   git diff --stat <base>...HEAD
+   git diff <base>...HEAD -- <the changed files>
+   ```
+   Also read the task and `.wf/report.md`.
+2. **Project docs**: update the project's own docs/changelog/handoff for what changed, in its
+   style. Commit locally as `T-NNN docs: <what>`. Never push.
+3. **`.wf/summary.md`** (replaces the project summary; max 40 lines):
    ```
    # Summary — <project> — <YYYY-MM-DD HH:MM>
    ## Last task: T-NNN <title>
@@ -39,19 +34,16 @@ Sources, in order: the task, `.wf/report.md`, `git diff main...HEAD`, the code, 
    ## Open items
    <TODO(owner) and unresolved things>
    ```
-3. **`.wf/suggestions.md`**: only if something should be adjusted or added (bugs noticed, risky
+4. **`.wf/suggestions.md`**: only if something should be adjusted or added (bugs noticed, risky
    code, missing tests, doc gaps). One line each: `- <file:line> <suggestion> (why)`.
-   **No suggestions → leave the file empty.** Do not pad.
+   **No suggestions → leave the file empty.**
 
-## Job 3: Long text and reading
-
-Story, dialogue, item/quest text, store copy, or summaries of long docs/logs, as a task asks.
-Every claim in a summary points to file and line or section.
+Also on request: story, dialogue, item/quest text, store copy, summaries of long docs or logs.
 
 ## Rules
 
-- Describe what was done; **never invent** features, reasons, dates or decisions. Unclear:
-  `TODO(owner): <question>`.
-- Never change code, tests, config, scenes, prefabs or assets.
+- Describe only what the diff and report show; **never invent** features, reasons, dates or
+  decisions. Unclear: `TODO(owner): <question>`.
+- Edit only docs and text files; never code, tests, config, scenes, prefabs or assets.
 - Blocked: `orca orchestration ask ...` from the preamble.
-- Finish with exactly one `worker_done` (`--outcome succeeded|failed`). Then stop. Never push or merge.
+- Exactly one `worker_done` (`--outcome succeeded|failed`). Then stop.

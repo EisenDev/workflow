@@ -7,7 +7,7 @@ No active task. Claude writes the next one here from this layout:
 
 Status: draft            (draft | building | checking | waiting-ok | approved | dropped)
 Priority: P2             (P1 urgent | P2 normal | P3 when free)
-Size: M                  (S tiny: no scout/docs | M normal | L split into M tasks)
+Size: M                  (S tiny: no writer | M normal | L split into M tasks)
 Branch: tNNN-<slug>
 Orca: run=<id> task=<id> dispatch=<id> worktree=<path>
 Started: YYYY-MM-DD HH:MM
@@ -27,7 +27,7 @@ Started: YYYY-MM-DD HH:MM
 - Owner checks: <visuals/feel, or none>
 
 ## Notes
-<pointers from the scout's context, constraints, what not to do>
+<file:symbol pointers from the codemap, constraints, what not to do>
 
 ## Rework
 <Claude appends short notes here when sending work back>
