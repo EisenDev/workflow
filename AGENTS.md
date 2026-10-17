@@ -74,8 +74,8 @@ docs/        usage.md  project-setup.md  resources.md  orca.md
 
 ## Status and build order
 
-Status (2026-10-18): four projects registered (local `projects/`); owsi passed a full dry-run
-check; owsi-giveaway has its codemap (with docs map). Ready for the first real task.
+Status (2026-10-18): five projects registered (local `projects/`); owsi passed a full dry-run
+check; owsi-giveaway and berry have codemaps (with docs map). Ready for the first real task.
 
 1. [x] Repo on GitHub, roles, taskflow, Unity + web profiles, skills (installed), docs.
 2. [x] Memory gate + watcher, `wf.sh` (new, list, prep, map-status/stamp, diff, writer-check,
