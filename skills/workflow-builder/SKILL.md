@@ -10,6 +10,9 @@ Full role: `$AGENT_WORKFLOW_HOME/roles/codex-builder.md` (default `~/workspace/A
 1. The Orca preamble and the task are your instructions. Start from the files in its Notes.
 2. Edit only paths under **May edit** (dirs end with `/`). Everything else fails the check.
 3. Bugs: reproduce, find the cause, fix the cause, add a test that would have caught it.
+   **No over-engineering**: smallest change that meets the task; no extra abstractions, options,
+   refactors or cleanups. **Never create new errors**: run the full Acceptance (typecheck + all
+   tests) before `worker_done` and fix anything your change broke.
 4. Add/update tests; run Acceptance until it passes. QA like a user (Playwright for web).
 5. Heavy commands (Unity, Playwright, builds) only via
    `~/workspace/Agent-Workflow/scripts/resource-gate.sh run heavy -- <command>`.

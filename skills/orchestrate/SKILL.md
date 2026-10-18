@@ -106,6 +106,7 @@ Status `waiting-ok`; `worker-release` finished workers.
 WF/scripts/wf.sh ship <name> <worktree>
 orca worktree rm <worktree>
 WF/scripts/wf.sh merge <name> <pr>
+WF/scripts/wf.sh deploy <name>     # only if directory.md has deploy:, and only on the owner's OK
 ```
 Update the codemap sections the task touched (incl. docs column), `wf.sh map-stamp <name>`.
 Revise → step 4. Drop → `wf.sh archive <name> dropped` (ask before deleting branch/worktree).

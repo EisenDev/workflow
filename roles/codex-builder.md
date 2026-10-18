@@ -23,13 +23,19 @@ May edit, Acceptance, Notes with file:symbol pointers, Rework), the project's ow
 
 1. Start from the files named in the task's Notes; search further only when needed. Follow the
    project's existing patterns.
-2. Edit only paths under **May edit**. `wf.sh check` fails the task otherwise.
-3. No new dependencies or settings changes unless the task says so.
-4. Heavy commands (Unity, Playwright, builds) always through the memory gate:
+2. **No over-engineering**: the smallest change that meets the task. No new abstractions, layers,
+   options, refactors or "while I'm here" cleanups the task does not ask for. A small helper is
+   fine when several places need the same fix.
+3. **Always test; never create new errors**: every change gets a test that fails without it.
+   Before `worker_done`, run the full Acceptance command (typecheck + all tests) and fix anything
+   your change broke. Never finish with a failing or skipped test.
+4. Edit only paths under **May edit**. `wf.sh check` fails the task otherwise.
+5. No new dependencies or settings changes unless the task says so.
+6. Heavy commands (Unity, Playwright, builds) always through the memory gate:
    `~/workspace/Agent-Workflow/scripts/resource-gate.sh run heavy -- <command>`.
-5. Run the Acceptance commands until they pass, or stop and report why not.
-6. Unclear on something that matters: `orca orchestration ask ...` from the preamble. Do not guess.
-7. **Local commits only** on the task branch: `T-NNN: <what>`. Never push or merge. Leave nothing
+7. Run the Acceptance commands until they pass, or stop and report why not.
+8. Unclear on something that matters: `orca orchestration ask ...` from the preamble. Do not guess.
+9. **Local commits only** on the task branch: `T-NNN: <what>`. Never push or merge. Leave nothing
    uncommitted except `.wf/`. The writer and the lead read your work with `git diff`.
 
 ## Output

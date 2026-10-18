@@ -15,6 +15,7 @@
 #   wf.sh archive <name> approved|dropped    move task.md to the top of archive.md, reset task.md
 #   wf.sh ship <name> <worktree>             push the task branch, open a PR (summary as body)
 #   wf.sh merge <name> <pr>                  squash-merge the PR, archive the task as approved
+#   wf.sh deploy <name>                      deploy origin/<base> to production (directory.md deploy:)
 set -euo pipefail
 
 WF="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
@@ -222,6 +223,24 @@ cmd_merge() {
   cmd_archive "$1" approved
 }
 
+# deploy: vercel -> `vercel deploy --prod` from a clean checkout of origin/<base>, so no local
+# .env file, untracked file or other branch is uploaded. Only on the owner's OK.
+cmd_deploy() {
+  local d src base kind wt
+  d=$(proj "${1:-}"); src=$(project_path "$d"); base=$(base_branch "$d" "$src")
+  kind=$(field "$d/directory.md" deploy)
+  [[ "$kind" == vercel ]] || die "deploy: '$kind' not supported (directory.md deploy: vercel)"
+  [[ -f "$src/.vercel/project.json" ]] || die "no .vercel/project.json in $src (run vercel link there)"
+  git -C "$src" fetch -q origin "$base"
+  wt="${XDG_CACHE_HOME:-$HOME/.cache}/agent-workflow/deploy/$(basename "$d")"
+  git -C "$src" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+  git -C "$src" worktree add -q --detach "$wt" "origin/$base"
+  mkdir -p "$wt/.vercel"; cp "$src/.vercel/project.json" "$wt/.vercel/"
+  echo "deploying origin/$base @ $(git -C "$wt" rev-parse --short HEAD) to production"
+  (cd "$wt" && vercel deploy --prod --yes) || { git -C "$src" worktree remove --force "$wt"; die "deploy failed"; }
+  git -C "$src" worktree remove --force "$wt"
+}
+
 c="${1:-}"; shift || true
 case "$c" in
   list) cmd_list ;;
@@ -236,6 +255,7 @@ case "$c" in
   collect) cmd_collect "$@" ;;
   archive) cmd_archive "$@" ;;
   ship) cmd_ship "$@" ;;
+  deploy) cmd_deploy "$@" ;;
   merge) cmd_merge "$@" ;;
-  *) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+  *) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

@@ -19,6 +19,11 @@ copy: .env.local          # git-ignored local files a worktree needs; comma-sepa
 - Use the project's own package manager (lock file decides: `package-lock.json` → npm,
   `pnpm-lock.yaml` → pnpm).
 
+## Secrets
+
+Never print a `.env*` file, even "with values hidden": commented-out lines hold secrets too.
+List variable names only: `grep -oE '^#? *[A-Z_]+=' .env.local`.
+
 ## Never (any agent)
 
 - Use `.env.production`, run any script ending in `:prod`, `db:push`, `db:link`, deploys

@@ -184,6 +184,9 @@ orca worktree rm <worktree>
 $WF/scripts/wf.sh merge <name> <pr>              # squash-merge + archive as approved
 ```
 
+Production deploy, when the project deploys by hand (`deploy:` in `directory.md`), is a separate
+step after the merge and needs its own OK: `$WF/scripts/wf.sh deploy <name>`.
+
 Then pull the merge into the local base only with the owner's OK (or leave it for the next
 `map-status`), update the codemap sections the task touched, including new docs in the docs
 column (Claude already read that diff), and `wf.sh map-stamp <name>`.
