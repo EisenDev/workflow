@@ -161,7 +161,8 @@ cmd_check() {
     ok=0
     for p in "${allow[@]}"; do
       if [[ "$p" == */ ]]; then [[ "$f" == "$p"* ]] && ok=1
-      else [[ "$f" == $p || "$f" == $p.meta ]] && ok=1; fi   # unquoted: globs allowed
+      # literal match first (Next.js paths like [id] are not globs), then glob match
+      elif [[ "$f" == "$p" || "$f" == "$p.meta" || "$f" == $p || "$f" == $p.meta ]]; then ok=1; fi
     done
     (( ok )) || outside+=("$f")
   done
