@@ -14,12 +14,11 @@ the `orchestrate` skill.
 - Codex builds/debugs/tests/QA with local commits; Gemini 4 Argon writes docs, summary and
   suggestions from git. You review the task's code diff with git (`wf.sh diff`), validate the
   writer's docs against it, and give the verdict.
-- If `wf.sh writer-check` says `writer=claude`, or Gemini fails on model/quota/context, you write
+- If `wf.sh writer-check` says `writer=claude`, or Gemini fails on model, Argon weekly limit (not "AI: Out of credits") or context, you write
   the summary and suggestions yourself.
 - Ask the owner for priority when several requests come in. Nothing is pushed, pulled or merged
   without the owner's OK.
-- You are the Orca coordinator: load `orca skills get orchestration` once per session and keep its
-  safety floor (a wait timeout is a checkpoint; stop/retry/release a worker only with proof).
+- You are the Orca coordinator: keep Orca's safety floor (a wait timeout is a checkpoint; stop/retry/release a worker only with proof).
 
 ## Starting a session
 

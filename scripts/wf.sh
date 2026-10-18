@@ -134,7 +134,19 @@ cmd_prep() {
     [[ -e "$src/$f" ]] || { echo "warn: copy: $f not found in project" >&2; continue; }
     [[ -e "$wt/$f" ]] || { mkdir -p "$(dirname "$wt/$f")"; cp -a "$src/$f" "$wt/$f"; n=$((n + 1)); }
   done
-  echo "prepared $wt (.wf/ excluded, copied $n file(s))"
+  trust_agy "$wt"
+  echo "prepared $wt (.wf/ excluded, copied $n file(s), trusted for agy)"
+}
+
+# agy trusts exact paths only (a trusted parent does not count): add the worktree so a worker
+# never stops at "Do you trust the contents of this project?".
+trust_agy() {
+  local wt s="${WF_AGY_SETTINGS:-$HOME/.gemini/antigravity-cli/settings.json}" tmp
+  wt=$(cd "$1" && pwd -P)
+  [[ -f "$s" ]] || { echo "warn: $s not found; agy trust not set" >&2; return 0; }
+  jq -e --arg p "$wt" '(.trustedWorkspaces // []) | index($p)' "$s" >/dev/null && return 0
+  tmp=$(mktemp "$s.XXXX")
+  jq --arg p "$wt" '.trustedWorkspaces = ((.trustedWorkspaces // []) + [$p])' "$s" > "$tmp" && mv "$tmp" "$s"
 }
 
 cmd_check() {

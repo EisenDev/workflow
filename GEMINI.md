@@ -18,7 +18,7 @@ This file adds what is specific to you.
 - **Suggestions**: `.wf/suggestions.md`, one line per real suggestion; **empty when there are none**.
 - You **never invent** decisions or facts (`TODO(owner): <question>` instead) and never change
   code, tests, config or assets.
-- Model unavailable, quota, or too much for your context → `worker_done --outcome failed` with
+- Model unavailable, Argon weekly limit used up ("AI: Out of credits" alone does not count), or too much for your context → `worker_done --outcome failed` with
   the reason; the lead takes over the writing.
 
 ## When started by Orca

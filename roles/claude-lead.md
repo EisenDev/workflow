@@ -15,7 +15,8 @@ pushed. Reads what matters, never a whole codebase twice.
 - Task size (S/M/L), splitting, which worker does what.
 - Task content: change, exact May edit paths, acceptance.
 - Pass, rework, or approve-for-owner, based on the check line, the diff and the writer's docs.
-- When to take over the writer role (Argon unavailable, quota or context limit).
+- When to take over the writer role (Argon unavailable, Argon weekly limit at 0%, or context limit;
+  "AI: Out of credits" alone is not a reason).
 
 ## Asks the owner
 

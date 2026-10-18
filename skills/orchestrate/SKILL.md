@@ -18,7 +18,8 @@ WF/scripts/resource-gate.sh status            # memory
 systemctl --user is-active wf-resource-watch  # if inactive: start it (docs/resources.md)
 ```
 
-First Orca use this session: `orca skills get orchestration` once; keep its safety floor.
+Orca safety floor: a wait timeout is a checkpoint; stop/retry/release a worker only with proof
+(`worker-list` / `worker-show`). Unsure of a flag → `orca orchestration <cmd> --help`.
 A task whose `task.md` is not "none" → continue it from its `Status:`.
 Unknown project → ask path + type → `WF/scripts/wf.sh new <name> "<repo path>" <type>`.
 
@@ -43,7 +44,8 @@ Never re-read the whole codebase. From the map, open only the exact files to cha
 
 Write `WF/projects/<name>/task.md` (template layout, 20–40 lines): Goal, Change, exact
 `## May edit` (dirs end with `/`), Acceptance, `## Docs` (from the map's docs column, or
-"none (why)"), Notes with file:symbol pointers. Status `building`.
+"none (why)"), Notes with file:symbol pointers **read from `<base>`** (`git show <base>:<file>`,
+`git grep <pat> <base>`), not the branch the owner has checked out. Status `building`.
 
 ## 4. Build (Codex)
 
@@ -58,12 +60,16 @@ orca orchestration check --wait --types "worker_done,escalation,question" --time
 ```
 
 Record run/task/dispatch/worktree in `task.md`. Answer questions from the task or ask the owner.
-Timeout = checkpoint; after 3 empty waits use `worker-list`. Codex: local commits only.
+`check` returns the oldest unacknowledged batch (often a heartbeat) until you `check --ack
+<deliveryId>`: ack every batch you read. Timeout = checkpoint; after 3 empty waits use
+`worker-list`. Codex: local commits only.
 
 ## 5. Check
 
 `WF/scripts/wf.sh check <name> <worktree>` → PASS, or rework: 1–3 lines under `## Rework`,
-`worker-start ... --retry-of <dispatch_id>`, back to 4. Two failed reworks → ask the owner.
+then a new `task-create --task-title "T-NNN rework"` (spec: rework notes + task.md) and
+`worker-start --task <new id> --agent codex --worktree path:<worktree>` (`--retry-of` only works
+within the same Orca task). Back to 4. Two failed reworks → ask the owner.
 
 ## 6. Writer
 
@@ -76,7 +82,8 @@ orca orchestration worker-start --task <docs task_id> --agent antigravity --work
 orca orchestration check --wait --types "worker_done,escalation,question" --timeout-ms 900000 --json
 WF/scripts/wf.sh collect <name> <worktree>
 ```
-Gemini fails on model/quota/context, or writer=claude → you write `.wf/summary.md`,
+`prep` already trusted the worktree for agy. Argon's quota = the **Gemini 4 Argon Weekly Limit** in agy's Models & Quota screen; the status bar's "AI: Out of credits" is paid overage credits and does **not** mean Argon is unavailable.
+Gemini fails on model, Argon weekly limit or context, or writer=claude → you write `.wf/summary.md`,
 `.wf/suggestions.md` and only the `## Docs` changes, then `collect`.
 
 ## 7. Verdict
@@ -109,5 +116,6 @@ Revise → step 4. Drop → `wf.sh archive <name> dropped` (ask before deleting 
 - No push/merge/pull/deletion without the owner's OK. Workers only in task worktrees.
 - Every worker start → `resource-gate.sh wait agent`; heavy commands → `resource-gate.sh run heavy --`.
 - `worker-start` has no `--spec` in the installed Orca: always `task-create` first.
+- `orca skills get` does not exist in the installed Orca (it opens the app window).
 - First real runs: when an Orca command's output or flag differs from this skill, follow the
   real CLI (`--help`), finish the task, and tell the owner what to fix in the workflow.

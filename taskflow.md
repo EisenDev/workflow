@@ -84,7 +84,8 @@ folder to understand the current code.
 ### 3. Task (Claude)
 
 Write `projects/<name>/task.md` from the template, 20–40 lines, with an exact `## May edit`
-(dirs end with `/`), file:symbol pointers in `## Notes` so Codex does not have to search, and
+(dirs end with `/`), file:symbol pointers in `## Notes` so Codex does not have to search (read them from `<base>`, e.g.
+`git show <base>:<file>`, never from the branch the owner has checked out), and
 `## Docs`: the project docs the writer should update (from the codemap's docs column), or
 "none (why)".
 
@@ -102,7 +103,8 @@ orca orchestration check --wait --types "worker_done,escalation,question" --time
 
 Codex builds, debugs, tests (heavy runs through the gate), does QA, makes **local commits only**
 (`T-NNN: ...`, never push), and writes `.wf/report.md` (≤ 15 lines). A wait timeout is a
-checkpoint; after three empty waits, `worker-list` (docs/orca.md).
+checkpoint; after three empty waits, `worker-list` (docs/orca.md). `check` keeps returning the oldest
+unacknowledged batch (heartbeats included) until `check --ack <deliveryId>`: ack every batch read.
 
 ### 5. Check (script)
 
@@ -111,7 +113,8 @@ $WF/scripts/wf.sh check <name> <worktree>
 # PASS files=4 +120/-30 uncommitted=0 tests=ok
 ```
 
-FAIL → rework: 1–3 lines under `## Rework`, Codex again with `--retry-of <dispatch_id>`, back to
+FAIL → rework: 1–3 lines under `## Rework`, then a new Orca task "T-NNN rework" (spec = rework
+notes + task.md) and `worker-start` on the same worktree (`--retry-of` only works within one task), back to
 step 4. Two failed reworks on the same point → ask the owner.
 
 ### 6. Writer: docs, summary, suggestions
@@ -137,8 +140,11 @@ reads `.wf/report.md` and the task, and writes:
 - `.wf/summary.md` (with a `Docs:` line) and `.wf/suggestions.md` (empty if none; includes other
   docs that are now out of date).
 
-**Fallback to Claude** when `writer=claude`, or the Gemini worker fails/exits with a model,
-quota or context-limit error: Claude writes the summary and suggestions itself (it reads the diff
+`wf.sh prep` adds the worktree to agy's `trustedWorkspaces` (agy trusts exact paths only).
+Argon's quota = the **Gemini 4 Argon Weekly Limit** in agy's Models & Quota screen; the status bar's "AI: Out of credits" is paid overage credits and does **not** mean Argon is unavailable.
+
+**Fallback to Claude** when `writer=claude`, or the Gemini worker fails/exits with a model error,
+the Argon weekly limit at 0%, or a context-limit error: Claude writes the summary and suggestions itself (it reads the diff
 in step 7 anyway) and only the doc changes the task really needs. Note "writer: claude (reason)"
 in the report.
 
@@ -208,6 +214,7 @@ first; every worker start passes `resource-gate.sh wait agent`, every heavy comm
 
 ## To verify in the first real run
 
-- `orca worktree create` output: worktree path and branch name.
-- Gemini worker failure shape when Argon is out of quota or over context (to detect fallback).
+- Verified (T-001 berry): `orca worktree create` → `~/orca/workspaces/<repo>/<name>`, branch
+  `EisenDev/<name>`; check needs `--ack`; `--retry-of` is per task; agy needs a trusted path.
+- Gemini worker failure shape when the Argon weekly limit is 0% or over context (to detect fallback).
 - `orca worktree rm` before `gh pr merge --delete-branch` (local branch in use otherwise).

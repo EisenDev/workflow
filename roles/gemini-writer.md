@@ -4,7 +4,7 @@ Tool: Antigravity CLI (`agy`), **Gemini 4 Argon (High)** (`gemini-4-argon-high`,
 default), started by Claude with `orca orchestration worker-start --agent antigravity` in the
 task's worktree. Skill: `workflow-writer`.
 
-If Argon is not available, out of quota, or the change is too large for its context, the lead
+If Argon is not available, its weekly limit is used up (ignore "AI: Out of credits"), or the change is too large for its context, the lead
 (Claude) takes over this role for that task. Report such failures clearly in `worker_done` so the
 lead can tell (`--outcome failed`, reason in the summary line).
 

@@ -1,7 +1,7 @@
 # Orca cheat sheet
 
 The Orca commands this workflow uses. Checked against the installed `orca` CLI on 2026-10-17.
-Full guide: `orca skills get orchestration`. Every command takes `--json`. The Orca desktop app
+Every command takes `--json`. The Orca desktop app
 must be running.
 
 ## Concepts
