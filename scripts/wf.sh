@@ -214,7 +214,10 @@ cmd_ship() {
   d=$(proj "${1:-}"); branch=$(git -C "$wt" branch --show-current); base=$(base_branch "$d" "$wt")
   [[ -n "$branch" && "$branch" != "$base" ]] || die "refusing to ship from '$branch'"
   git -C "$wt" push -q -u origin "$branch"
-  (cd "$wt" && gh pr create --base "$base" --head "$branch" --title "$(title "$d")" --body-file "$d/summary.md")
+  # PR body: the task part of summary.md (project state / open items stay local) + attribution
+  { sed '/^## Project state/,$d' "$d/summary.md"
+    printf '\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n'; } > "$wt/.wf/pr-body.md"
+  (cd "$wt" && gh pr create --base "$base" --head "$branch" --title "$(title "$d")" --body-file .wf/pr-body.md)
 }
 
 cmd_merge() {
@@ -224,22 +227,25 @@ cmd_merge() {
   cmd_archive "$1" approved
 }
 
-# deploy: vercel -> `vercel deploy --prod` from a clean checkout of origin/<base>, so no local
-# .env file, untracked file or other branch is uploaded. Only on the owner's OK.
+# deploy: vercel -> `vercel deploy --prod` from a plain export of origin/<base> (git archive: no .git,
+# no local .env or untracked files). No git metadata is sent, because Vercel blocks deploys whose
+# commit author is not on the Vercel team; the deploy runs as the logged-in Vercel user.
+# Only on the owner's OK.
 cmd_deploy() {
-  local d src base kind wt
+  local d src base kind dir sha
   d=$(proj "${1:-}"); src=$(project_path "$d"); base=$(base_branch "$d" "$src")
   kind=$(field "$d/directory.md" deploy)
   [[ "$kind" == vercel ]] || die "deploy: '$kind' not supported (directory.md deploy: vercel)"
   [[ -f "$src/.vercel/project.json" ]] || die "no .vercel/project.json in $src (run vercel link there)"
   git -C "$src" fetch -q origin "$base"
-  wt="${XDG_CACHE_HOME:-$HOME/.cache}/agent-workflow/deploy/$(basename "$d")"
-  git -C "$src" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
-  git -C "$src" worktree add -q --detach "$wt" "origin/$base"
-  mkdir -p "$wt/.vercel"; cp "$src/.vercel/project.json" "$wt/.vercel/"
-  echo "deploying origin/$base @ $(git -C "$wt" rev-parse --short HEAD) to production"
-  (cd "$wt" && vercel deploy --prod --yes) || { git -C "$src" worktree remove --force "$wt"; die "deploy failed"; }
-  git -C "$src" worktree remove --force "$wt"
+  sha=$(git -C "$src" rev-parse --short "origin/$base")
+  dir="${XDG_CACHE_HOME:-$HOME/.cache}/agent-workflow/deploy/$(basename "$d")"
+  rm -rf "$dir"; mkdir -p "$dir/.vercel"
+  git -C "$src" archive "origin/$base" | tar -x -C "$dir"
+  cp "$src/.vercel/project.json" "$dir/.vercel/"
+  echo "deploying origin/$base @ $sha to production"
+  (cd "$dir" && vercel deploy --prod --yes) || { rm -rf "$dir"; die "deploy failed"; }
+  rm -rf "$dir"
 }
 
 c="${1:-}"; shift || true
