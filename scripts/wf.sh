@@ -216,7 +216,8 @@ cmd_ship() {
   git -C "$wt" push -q -u origin "$branch"
   # PR body: the task part of summary.md (project state / open items stay local) + attribution
   { sed '/^## Project state/,$d' "$d/summary.md"
-    printf '\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n'; } > "$wt/.wf/pr-body.md"
+    # WF_PR_FOOTER="" (solo agy skill) leaves the attribution out
+    printf '%s' "${WF_PR_FOOTER-$'\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n'}"; } > "$wt/.wf/pr-body.md"
   (cd "$wt" && gh pr create --base "$base" --head "$branch" --title "$(title "$d")" --body-file .wf/pr-body.md)
 }
 

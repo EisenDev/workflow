@@ -14,8 +14,8 @@ mkdir -p "$STATE"
 LOG="$STATE/resource.log"
 
 # Thresholds; override with env vars. GiB unless noted.
-: "${WF_MIN_FREE_AGENT:=3}"      # free memory needed to start an agent
-: "${WF_MIN_FREE_HEAVY:=6}"      # free memory needed to start a heavy job
+: "${WF_MIN_FREE_AGENT:=2}"      # free memory needed to start an agent
+: "${WF_MIN_FREE_HEAVY:=2}"      # free memory needed to start a heavy job
 : "${WF_CRITICAL_FREE:=1.5}"     # below this the watcher freezes heavy jobs
 : "${WF_MAX_PSI:=10}"            # memory pressure "some avg10" (%) above this = busy
 : "${WF_HEAVY_MEMORY_HIGH:=6G}"  # heavy job is throttled above this

@@ -33,7 +33,8 @@ taskflow.md                               the one source for the task lifecycle
 roles/       job, inputs, outputs, limits per agent
 profiles/    rules per project type: unity.md, web.md (software.md planned)
 projects/    _template/ (published) + one folder per project (git-ignored, local only)
-skills/      orchestrate (Claude), workflow-builder (Codex), workflow-writer (Gemini)
+skills/      orchestrate (Claude), workflow-builder (Codex), workflow-writer (Gemini),
+             orchestrate-solo (agy alone, any model: all roles, no Orca workers)
 scripts/     wf.sh (projects, codemap status, check, diff, archive, ship), resource-gate.sh +
              resource-watch.sh (memory),
              install.sh (links skills)

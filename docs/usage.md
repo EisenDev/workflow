@@ -44,6 +44,13 @@ Or tell Claude "add project X at <path>, it's web". Then check `projects/<name>/
 Also useful: "status", "map <project>" (build or refresh its codemap now), "show the suggestions
 for owsi", "continue", "dry-run <project>".
 
+## Solo: only Antigravity
+
+No Claude or Codex (or no Orca)? Start `agy` in the workflow folder with any model and type
+`/orchestrate ...` the same way. One agent then does every step itself, one project at a time:
+codemap, task, build and test in a worktree, docs, self-review, report, and "OK to push?".
+Same `projects/` files, same answers (OK / revise / not now / drop).
+
 ## Files in `projects/<name>/`
 
 | File | Meaning |

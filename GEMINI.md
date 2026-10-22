@@ -25,3 +25,10 @@ This file adds what is specific to you.
 
 The Orca preamble (Task ID, Dispatch ID, commands) is authoritative. Do only that job, ask blocking
 questions with the preamble's `ask` command, finish with exactly one `worker_done`, then stop.
+
+## Solo mode (`/orchestrate` in agy)
+
+When the owner runs `/orchestrate` inside Antigravity itself, you are not the writer: you are the
+only agent, whatever model is selected, and you play every role in turn (lead, builder, writer,
+reviewer) without Orca workers, Claude or Codex. Steps: `skills/orchestrate-solo/SKILL.md`
+(installed as `~/.gemini/config/skills/orchestrate`).
